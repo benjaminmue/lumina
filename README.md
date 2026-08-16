@@ -9,8 +9,16 @@ Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast, 
 - Einzelne Bilder auswählen (Mehrfachauswahl im Dateidialog)
 - Ganze Ordner auswählen, wahlweise mit Unterordnern
 - Dateien und Ordner per Drag and Drop ins Fenster ziehen
-- Aus einem importierten Ordner einzelne Bilder abwählen (Klick auf die Kachel)
 - Zuletzt genutzte Quellen werden beim Start automatisch neu eingelesen
+
+**Zusammenstellen**
+
+Markieren und Zusammenstellen sind getrennt, wie im Finder: ein Klick markiert,
+Cmd und Umschalt erweitern die Markierung, die Pfeiltasten bewegen sie. Entfernt
+wird mit der Löschtaste oder dem Kreuz auf der Kachel - entfernte Bilder
+verschwinden aus dem Raster, die Dateien bleiben unangetastet. Der Rückweg steht
+in der Statuszeile ("Anzeigen" und "Zurückholen"). Ein Doppelklick startet die
+Slideshow ab diesem Bild.
 
 **Übergänge**
 
@@ -33,7 +41,7 @@ Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast, 
 
 **Animierte Bilder**
 
-Animierte WebP, GIF und APNG werden abgespielt, nicht als Standbild gezeigt - Cinemagraphs
+Animierte WebP werden über libwebp dekodiert (ImageIO ist dort um Grössenordnungen zu langsam), GIF und APNG über ImageIO. Sie werden abgespielt, nicht als Standbild gezeigt - Cinemagraphs
 laufen also so, wie sie gedacht sind. Auf Wunsch bleibt ein animiertes Bild so lange stehen,
 bis die Animation mindestens einmal komplett durchgelaufen ist ("Animationen ganz abspielen").
 Kacheln in der Bibliothek zeigen die Zahl der Einzelbilder als Badge.
@@ -50,7 +58,20 @@ hinaus wird nie dekodiert.
 - Endlosschleife, Vollbildstart, Dateiname-Einblendung, Fortschrittsbalken
 - Drei Vorlagen: Bildschirmschoner, Diaschau, Präsentation
 
-## Steuerung im Player
+## Steuerung
+
+### Bibliothek
+
+| Taste | Funktion |
+|---|---|
+| Pfeiltasten | Markierung bewegen |
+| Umschalt + Klick | Bereich markieren |
+| Cmd + Klick | einzeln zur Markierung |
+| ⌘A | alles markieren |
+| Löschtaste | Markierte aus der Slideshow entfernen |
+| Return, Doppelklick | Slideshow ab hier starten |
+
+### Player
 
 | Taste | Funktion |
 |---|---|
@@ -92,7 +113,8 @@ Sources/LuminaCore/     Logik ohne UI-Abhängigkeit, vollständig testbar
 Sources/Lumina/         SwiftUI-Oberfläche
   AppState              Import, Auswahl, Persistenz der Einstellungen
   SlideshowEngine       Timing, Pause, Bildwechsel, Nachladen
-  Views/                Bibliothek, Player, Übergänge, Einstellungen
+  AnimationPlayback     Streamt Animations-Frames mit begrenztem Puffer
+  Views/                Bibliothek, Kachel, Player, Steuerleiste, Übergänge
 ```
 
 Bilder werden beim Dekodieren direkt auf Bildschirmgrösse heruntergerechnet
@@ -102,7 +124,8 @@ Caches, damit viele kleine Thumbnails die grossen Bilder nicht verdrängen.
 
 ## Bekannte Eigenheiten
 
-- Die Ken-Burns-Fahrt läuft bei Pause noch bis zu ihrem Endpunkt weiter und bleibt dann stehen. Der Bildwechsel selbst pausiert korrekt.
+- Die Ken-Burns-Fahrt läuft bei Pause noch bis zu ihrem Endpunkt weiter und bleibt dann stehen. Der Bildwechsel selbst pausiert korrekt. Die saubere Lösung würde eine GPU-getriebene Animation gegen 60 Zustandsänderungen pro Sekunde tauschen - das ist der Randfall nicht wert.
+- Entfernen lässt sich nicht mit ⌘Z rückgängig machen; der Rückweg führt über die Statuszeile.
 - Beim ersten Zugriff auf Schreibtisch, Dokumente oder Downloads fragt macOS einmal nach Erlaubnis.
 - Defekte oder gelöschte Dateien werden im Player übersprungen.
 

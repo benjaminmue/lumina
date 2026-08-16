@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.2.0 - 2026-08-16
+
+Überarbeitete Oberfläche, aus zwei Reviews entstanden: einem gestalterischen
+(Leitidee Leuchtkasten - die Oberfläche tritt zurück, die Bilder tragen) und
+einem zur macOS-Idiomatik.
+
+### Bibliothek
+
+- Markieren und Zusammenstellen sind getrennt: Klick markiert, Cmd und Umschalt
+  erweitern, Pfeiltasten bewegen die Markierung, ⌘A markiert alles
+- Entfernte Bilder verschwinden aus dem Raster, statt grau liegen zu bleiben.
+  Löschtaste entfernt die Markierung, die Statuszeile führt zurück
+- Dateinamen sind aus dem Raster verschwunden und erscheinen beim Überfahren
+  zusammen mit einem Play-Knopf
+- Ein Import-Menü statt zweier fast gleicher Knöpfe, ein prominenter
+  Abspielen-Knopf, "Unterordner einbeziehen" beim Import statt in den
+  Wiedergabe-Einstellungen
+
+### Einstellungen
+
+- Vorlagen als Karten mit aktivem Zustand, darunter die vier häufig genutzten
+  Regler, alles Übrige eingeklappt: sichtbar 9 statt 17 Bedienelemente
+- Die Übergangsdauer wird ausgeblendet statt ausgegraut, wenn es keinen Übergang gibt
+
+### Player
+
+- Ladezustand zeigt das Bild unscharf vorab statt eines Spinners auf Schwarz
+- Steuerleiste entschlackt, mit Verlauf über die volle Breite; das Ende der Show
+  ist ein Zustand dieser Leiste statt eines Dialogs mitten im Bild
+- Fortschrittsbalken ist im Ruhezustand ein Haarstrich
+
+### Behoben
+
+- Klicks auf die Kachel-Knöpfe wurden von der Auswahl-Geste geschluckt
+- Verlauf und Schatten der Steuerleiste waren auf Kapselbreite abgeschnitten
+
 ## 1.1.0 - 2026-08-16
 
 - Animierte WebP, GIF und APNG werden abgespielt statt als Standbild gezeigt
