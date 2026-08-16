@@ -1,137 +1,152 @@
 # Lumina
 
-Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast, kein Netzwerkzugriff.
+A native macOS slideshow app for Apple Silicon. SwiftUI, no framework baggage, no network access.
 
-## Funktionen
+Built for photo series and cinemagraphs: pick images or whole folders, set the timing and
+transition, hit play. Animated WebP, GIF and APNG actually animate instead of showing their
+first frame.
 
-**Quellen**
+> The user interface is in German. Code, commits and this document are in English.
+> [Deutsche Fassung dieser Datei](README.de.md).
 
-- Einzelne Bilder auswählen (Mehrfachauswahl im Dateidialog)
-- Ganze Ordner auswählen, wahlweise mit Unterordnern
-- Dateien und Ordner per Drag and Drop ins Fenster ziehen
-- Zuletzt genutzte Quellen werden beim Start automatisch neu eingelesen
+## Why it exists
 
-**Zusammenstellen**
+macOS has no decent standalone slideshow app. Preview cannot do transitions, Photos insists on
+importing everything into its library first, and screensavers only read from fixed folders.
+Lumina reads any folder, plays it fullscreen, and forgets about it afterwards.
 
-Markieren und Zusammenstellen sind getrennt, wie im Finder: ein Klick markiert,
-Cmd und Umschalt erweitern die Markierung, die Pfeiltasten bewegen sie. Entfernt
-wird mit der Löschtaste oder dem Kreuz auf der Kachel - entfernte Bilder
-verschwinden aus dem Raster, die Dateien bleiben unangetastet. Der Rückweg steht
-in der Statuszeile ("Anzeigen" und "Zurückholen"). Ein Doppelklick startet die
-Slideshow ab diesem Bild.
+## Features
 
-**Übergänge**
+**Sources**
 
-| Effekt | Verhalten |
+- Pick individual images, whole folders (optionally recursive), or drop files onto the window
+- Recently used sources are restored on launch
+
+**Building the set**
+
+Selecting and including are separate, like in Finder. A click selects, Cmd and Shift extend the
+selection, arrow keys move it. Delete removes images from the slideshow - they disappear from
+the grid, the files on disk are never touched. The status bar offers the way back.
+Double click starts the slideshow at that image.
+
+**Transitions**
+
+Cut, crossfade, slide, push, zoom, wipe, 3D flip, or a different one per image. Duration is
+adjustable from 0 to 3 seconds.
+
+**Image handling**
+
+Fit, fill (cropped), or fit with a blurred backdrop filling the letterbox. A Ken Burns pan and
+zoom in four strengths, reproducible per image. Adjustable background brightness.
+
+**Animated images**
+
+Animated WebP is decoded with libwebp rather than ImageIO. This is not a matter of taste -
+measured on a 301 frame cinemagraph:
+
+| Decoder | per frame | achievable rate |
+|---|---|---|
+| `CGImageSourceCreateThumbnailAtIndex` | 280 ms | 3.6 fps |
+| `CGAnimateImageAtURLWithBlock` | 78 ms | 12.8 fps |
+| libwebp `WebPAnimDecoder` | 1.5 ms | 652 fps |
+
+ImageIO only offers random access into an animated WebP and recomputes the whole frame history
+for every single frame, so decoding cost grows quadratically. That file needs 58.8 fps. GIF and
+APNG stay on ImageIO, where the frame counts are small enough for it to keep up.
+
+Frames are streamed through a bounded buffer, so a 400 frame file starts as fast as a JPEG and
+memory stays constant regardless of length.
+
+## Install
+
+Download the DMG from [Releases](https://github.com/benjaminmue/lumina/releases), drag Lumina to
+Applications.
+
+The app is ad-hoc signed but **not notarized**. On first launch, right click the app and choose
+*Open*, then confirm. A plain double click only shows a warning with no way forward. This is a
+one-time step.
+
+## Controls
+
+### Library
+
+| Key | Action |
 |---|---|
-| Harter Schnitt | Kein Übergang |
-| Überblenden | Klassisches Crossfade |
-| Schieben | Neues Bild schiebt sich über das alte |
-| Verdrängen | Beide Bilder bewegen sich wie ein Filmstreifen |
-| Zoom | Neues Bild kommt vergrössert herein, altes verkleinert sich |
-| Wischen | Maske läuft über die Fläche |
-| Umschlagen | 3D-Flip um die vertikale Achse |
-| Zufällig | Pro Bild ein anderer Effekt |
-
-**Bildbehandlung**
-
-- Einpassen (ganzes Bild sichtbar), Ausfüllen (Crop) oder Einpassen mit unscharfem Rand
-- Ken-Burns-Fahrt in vier Stufen (aus, dezent, mittel, stark): langsamer Zoom plus Schwenk
-- Hintergrundhelligkeit stufenlos von Schwarz bis Weiss
-
-**Animierte Bilder**
-
-Animierte WebP werden über libwebp dekodiert (ImageIO ist dort um Grössenordnungen zu langsam), GIF und APNG über ImageIO. Sie werden abgespielt, nicht als Standbild gezeigt - Cinemagraphs
-laufen also so, wie sie gedacht sind. Auf Wunsch bleibt ein animiertes Bild so lange stehen,
-bis die Animation mindestens einmal komplett durchgelaufen ist ("Animationen ganz abspielen").
-Kacheln in der Bibliothek zeigen die Zahl der Einzelbilder als Badge.
-
-Die Frames werden vollständig in den Speicher dekodiert. Ein Speicherbudget von 384 MB
-begrenzt das: passt ein langer Clip in Vollauflösung nicht hinein, wird die Auflösung
-halbiert; reicht auch das nicht, läuft die Datei als Standbild. Über die native Auflösung
-hinaus wird nie dekodiert.
-
-**Ablauf**
-
-- Anzeigedauer 1 bis 60 s, Übergangsdauer 0 bis 3 s
-- Sortierung nach Name (natürliche Zahlenreihenfolge), Erstell- oder Änderungsdatum, Dateigrösse oder Zufall
-- Endlosschleife, Vollbildstart, Dateiname-Einblendung, Fortschrittsbalken
-- Drei Vorlagen: Bildschirmschoner, Diaschau, Präsentation
-
-## Steuerung
-
-### Bibliothek
-
-| Taste | Funktion |
-|---|---|
-| Pfeiltasten | Markierung bewegen |
-| Umschalt + Klick | Bereich markieren |
-| Cmd + Klick | einzeln zur Markierung |
-| ⌘A | alles markieren |
-| Löschtaste | Markierte aus der Slideshow entfernen |
-| Return, Doppelklick | Slideshow ab hier starten |
+| Arrow keys | Move selection |
+| Shift + click | Select range |
+| Cmd + click | Add to selection |
+| Cmd A | Select all |
+| Delete | Remove selected from the slideshow |
+| Return, double click | Start slideshow here |
+| Cmd O, Shift Cmd O | Add images, add folders |
+| Cmd R | Start slideshow |
 
 ### Player
 
-| Taste | Funktion |
+| Key | Action |
 |---|---|
-| Leertaste | Pause / Weiter |
-| Pfeil rechts, Pfeil runter, Return | Nächstes Bild |
-| Pfeil links, Pfeil hoch | Vorheriges Bild |
-| Pos1 / Ende | Erstes / letztes Bild |
-| Esc | Slideshow beenden |
-| Mausbewegung | Steuerleiste einblenden |
-| Klick | Pause / Weiter |
+| Space | Pause and resume |
+| Left, Up | Previous image |
+| Right, Down, Return | Next image |
+| Home, End | First, last image |
+| Esc | Leave the slideshow |
+| Mouse move | Show the controls |
 
-Menü: `⌘O` Bilder wählen, `⇧⌘O` Ordner wählen, `⌘R` Slideshow starten.
+## Build
 
-## Bauen
-
-Voraussetzung: Xcode oder Command Line Tools mit Swift 6.
+Requires Xcode or the Command Line Tools with Swift 6, plus libwebp:
 
 ```bash
-./scripts/build-app.sh              # baut dist/Lumina.app
-./scripts/build-app.sh --install    # baut und kopiert nach /Applications
-swift test                          # 41 Unit-Tests (braucht XCTest aus Xcode)
-swift scripts/make-icon.swift       # erzeugt Resources/AppIcon.icns neu
+brew install webp
+
+./scripts/build-app.sh              # builds dist/Lumina.app
+./scripts/build-app.sh --install    # also copies it to /Applications
+./scripts/make-dmg.sh               # builds dist/Lumina-<version>.dmg
+swift test                          # 51 unit tests (XCTest needs Xcode)
+swift scripts/make-icon.swift       # regenerates Resources/AppIcon.icns
 ```
 
-Das Bundle wird ad-hoc signiert. Es ist nicht notarisiert - lokal gebaut startet es ohne Gatekeeper-Warnung, per AirDrop oder Download weitergegeben nicht.
+There is no Xcode project. `build-app.sh` compiles with SwiftPM and assembles the bundle itself,
+including the libwebp dylibs, so the installed app does not depend on Homebrew.
 
-## Aufbau
+## Layout
 
 ```
-Sources/LuminaCore/     Logik ohne UI-Abhängigkeit, vollständig testbar
-  SlideshowConfig       Einstellungen inklusive Wertebereichs-Prüfung
-  MediaItem             Datei-Scan, Sortierung, unterstützte Formate
-  SlideshowSequence     Ablaufsteuerung: weiter, zurück, Loop, Vorausladen
-  ImageLoader           Actor mit Downsampling beim Dekodieren und drei Caches
-  AnimatedImage         Frames und Zeitachse animierter Bilder
-  KenBurnsPlan          Reproduzierbare Kamerafahrt pro Bild
-  SeededGenerator       Deterministischer PRNG für stabile Animationen
+Sources/LuminaCore/     Logic without UI dependencies, fully tested
+  SlideshowConfig       Settings, including range clamping and tolerant decoding
+  MediaItem             File scanning, sorting, supported formats
+  SlideshowSequence     Advance, rewind, loop, prefetch
+  ImageLoader           Actor with downsampling at decode time
+  AnimationDecoder      Facade: libwebp for WebP, ImageIO for the rest
+  WebPAnimationDecoder  Sequential frame decoding via libwebp
+  FrameTimeline         Which frame is visible at a point in time
+  KenBurnsPlan          Reproducible camera move per image
+  SeededGenerator       Deterministic PRNG, so animations do not jitter on redraw
 
-Sources/Lumina/         SwiftUI-Oberfläche
-  AppState              Import, Auswahl, Persistenz der Einstellungen
-  SlideshowEngine       Timing, Pause, Bildwechsel, Nachladen
-  AnimationPlayback     Streamt Animations-Frames mit begrenztem Puffer
-  Views/                Bibliothek, Kachel, Player, Steuerleiste, Übergänge
+Sources/Lumina/         SwiftUI interface
+  AppState              Import, selection, persistence
+  SlideshowEngine       Timing, pause, image changes
+  AnimationPlayback     Streams animation frames through a bounded buffer
+  Views/                Library, tile, player, controls, transitions
 ```
 
-Bilder werden beim Dekodieren direkt auf Bildschirmgrösse heruntergerechnet
-(`CGImageSourceCreateThumbnailAtIndex`), sonst würde ein 60-Megapixel-RAW als
-240-MB-Bitmap im Speicher landen. Vorschaukacheln und Vollbilder haben getrennte
-Caches, damit viele kleine Thumbnails die grossen Bilder nicht verdrängen.
+Images are downsampled while decoding (`CGImageSourceCreateThumbnailAtIndex`), otherwise a
+60 megapixel RAW would land in memory as a 240 MB bitmap. Thumbnails and fullscreen images use
+separate caches so the many small ones cannot evict the large ones.
 
-## Bekannte Eigenheiten
+## Known quirks
 
-- Die Ken-Burns-Fahrt läuft bei Pause noch bis zu ihrem Endpunkt weiter und bleibt dann stehen. Der Bildwechsel selbst pausiert korrekt. Die saubere Lösung würde eine GPU-getriebene Animation gegen 60 Zustandsänderungen pro Sekunde tauschen - das ist der Randfall nicht wert.
-- Entfernen lässt sich nicht mit ⌘Z rückgängig machen; der Rückweg führt über die Statuszeile.
-- Beim ersten Zugriff auf Schreibtisch, Dokumente oder Downloads fragt macOS einmal nach Erlaubnis.
-- Defekte oder gelöschte Dateien werden im Player übersprungen.
+- The Ken Burns move keeps running to its end point when you pause, then stops. The image change
+  itself pauses correctly. Fixing this properly would trade a GPU driven animation for 60 state
+  updates per second, which the edge case does not justify.
+- Removing images cannot be undone with Cmd Z; the status bar is the way back.
+- macOS asks once for permission the first time you read from Desktop, Documents or Downloads.
 
-## Formate
+## Formats
 
-JPEG, PNG, HEIC/HEIF, GIF, TIFF, BMP, WebP, AVIF, JPEG 2000, PSD sowie die
-gängigen RAW-Formate (DNG, CR2, CR3, NEF, ARW, ORF, RAF, RW2).
+JPEG, PNG, HEIC/HEIF, GIF, TIFF, BMP, WebP, AVIF, JPEG 2000, PSD and the common RAW formats
+(DNG, CR2, CR3, NEF, ARW, ORF, RAF, RW2). Animated playback for WebP, GIF, APNG and HEICS.
 
-Animiert abgespielt werden WebP, GIF, APNG und HEICS.
+## License
+
+MIT, see [LICENSE](LICENSE).

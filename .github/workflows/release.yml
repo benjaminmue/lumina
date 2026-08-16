@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, z.B. 1.2.0"
+        required: true
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libwebp
+        run: brew install webp
+
+      - name: Test
+        run: swift test
+
+      - name: Build DMG
+        run: ./scripts/make-dmg.sh
+
+      - name: Collect release notes
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -z "$VERSION" ] && VERSION="${{ github.event.inputs.version }}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Abschnitt der Version aus dem Changelog schneiden.
+          awk -v v="## $VERSION" '
+            $0 ~ "^" v { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          cat release-notes.md
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.dmg
+          body_path: release-notes.md
+          name: Lumina ${{ steps.notes.outputs.version }}

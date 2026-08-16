@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libwebp
+        run: brew install webp
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build
+        run: swift build -c release
+
+      - name: Test
+        run: swift test
+
+      - name: Assemble app bundle
+        run: ./scripts/build-app.sh
+
+      - name: Verify bundle is self-contained
+        run: |
+          # Nach dem Einbetten darf keine Homebrew-Referenz mehr im Programm stehen,
+          # sonst startet die App nur auf Rechnern mit installiertem libwebp.
+          if otool -L dist/Lumina.app/Contents/MacOS/Lumina | grep -q "/opt/homebrew"; then
+            echo "Bundle referenziert noch Homebrew-Pfade:"
+            otool -L dist/Lumina.app/Contents/MacOS/Lumina | grep "/opt/homebrew"
+            exit 1
+          fi
+          codesign --verify --strict dist/Lumina.app
+          lipo -archs dist/Lumina.app/Contents/MacOS/Lumina
