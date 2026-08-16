@@ -4,10 +4,6 @@ import ImageIO
 import os
 import UniformTypeIdentifiers
 
-/// Lädt Bilder von der Platte, skaliert sie beim Dekodieren herunter und hält sie im Cache.
-///
-/// Ohne Downsampling würde ein 60-Megapixel-RAW als 240-MB-Bitmap im Speicher landen.
-/// `CGImageSourceCreateThumbnailAtIndex` dekodiert stattdessen direkt in der Zielgrösse.
 /// Gemeinsames Log der Bildverarbeitung.
 ///
 /// Ohne Log bleibt bei einer Meldung wie "die Slideshow bleibt schwarz" nichts
@@ -15,6 +11,10 @@ import UniformTypeIdentifiers
 /// `log stream --predicate 'subsystem == "ch.bebamu.lumina"'`
 let imageLog = Logger(subsystem: "ch.bebamu.lumina", category: "images")
 
+/// Lädt Bilder von der Platte, skaliert sie beim Dekodieren herunter und hält sie im Cache.
+///
+/// Ohne Downsampling würde ein 60-Megapixel-RAW als 240-MB-Bitmap im Speicher landen.
+/// `CGImageSourceCreateThumbnailAtIndex` dekodiert stattdessen direkt in der Zielgrösse.
 public actor ImageLoader {
     /// NSCache braucht Klassen-Typen, CGImage ist ein CF-Typ - darum dieser Wrapper.
     private final class CachedImage: NSObject {
@@ -52,8 +52,18 @@ public actor ImageLoader {
         }
     }
 
+    /// Laufende Dekodierung samt der Grösse, für die sie gestartet wurde.
+    ///
+    /// Die Grösse muss mitgeführt werden: eine Anfrage nach 3000 px darf nicht auf
+    /// eine laufende 1000-px-Dekodierung aufspringen und deren Ergebnis anschliessend
+    /// als 3000 px in den Cache legen - danach gälte ein zu kleines Bild als gross genug.
+    private struct PendingDecode {
+        let maxPixelSize: Int
+        let task: Task<CGImage?, Never>
+    }
+
     private nonisolated let cache: ImageCache
-    private var inFlight: [String: Task<CGImage?, Never>] = [:]
+    private var inFlight: [String: PendingDecode] = [:]
     /// Frame-Anzahl und Delays je Datei. Enthält keine Pixel und bleibt darum klein.
     private var infoCache: [String: AnimationInfo] = [:]
 
@@ -70,12 +80,13 @@ public actor ImageLoader {
         if let cached = cache.value(for: url.path), cached.pixelSize >= maxPixelSize {
             return cached.image
         }
-        if let running = inFlight[url.path] {
-            let shared = await running.value
+        // Nur aufspringen, wenn die laufende Dekodierung mindestens so gross ausfällt.
+        if let running = inFlight[url.path], running.maxPixelSize >= maxPixelSize {
+            let shared = await running.task.value
             // Der Vorauslade-Task schreibt den Cache erst danach; ohne diese Zeile
             // liefe ein direkt folgender cachedImage-Aufruf ins Leere.
             if let shared {
-                cache.insert(CachedImage(image: shared, pixelSize: maxPixelSize), for: url.path,
+                cache.insert(CachedImage(image: shared, pixelSize: running.maxPixelSize), for: url.path,
                              cost: shared.bytesPerRow * shared.height)
             }
             return shared
@@ -84,9 +95,13 @@ public actor ImageLoader {
         let task = Task.detached(priority: .userInitiated) { () -> CGImage? in
             Self.decode(url: url, maxPixelSize: maxPixelSize)
         }
-        inFlight[url.path] = task
+        inFlight[url.path] = PendingDecode(maxPixelSize: maxPixelSize, task: task)
         let result = await task.value
-        inFlight[url.path] = nil
+        // Nur den eigenen Eintrag entfernen: inzwischen kann eine grössere Anfrage
+        // eine neue Dekodierung eingetragen haben.
+        if inFlight[url.path]?.maxPixelSize == maxPixelSize {
+            inFlight[url.path] = nil
+        }
 
         if let result {
             let cost = result.bytesPerRow * result.height
@@ -110,7 +125,7 @@ public actor ImageLoader {
             let task = Task.detached(priority: .utility) { () -> CGImage? in
                 Self.decode(url: url, maxPixelSize: maxPixelSize)
             }
-            inFlight[url.path] = task
+            inFlight[url.path] = PendingDecode(maxPixelSize: maxPixelSize, task: task)
             Task { [weak self] in
                 let result = await task.value
                 await self?.finishPrefetch(url: url, image: result, maxPixelSize: maxPixelSize)
@@ -119,8 +134,9 @@ public actor ImageLoader {
     }
 
     private func finishPrefetch(url: URL, image: CGImage?, maxPixelSize: Int) {
-        // Der Task kann den Wettlauf gegen clearCache verloren haben.
-        guard inFlight[url.path] != nil else { return }
+        // Der Task kann den Wettlauf gegen clearCache oder eine grössere Anfrage
+        // verloren haben.
+        guard inFlight[url.path]?.maxPixelSize == maxPixelSize else { return }
         inFlight[url.path] = nil
         guard let image else { return }
         let cost = image.bytesPerRow * image.height
@@ -138,7 +154,7 @@ public actor ImageLoader {
     /// Ohne das dekodiert die App nach dem Leeren der Liste oder dem Verlassen der
     /// Slideshow noch Bilder fertig und legt sie in den gerade geleerten Cache.
     public func cancelPrefetches() {
-        for task in inFlight.values { task.cancel() }
+        for pending in inFlight.values { pending.task.cancel() }
         inFlight.removeAll()
     }
 

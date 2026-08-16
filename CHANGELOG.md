@@ -36,6 +36,23 @@ einem zur macOS-Idiomatik.
 - Klicks auf die Kachel-Knöpfe wurden von der Auswahl-Geste geschluckt
 - Verlauf und Schatten der Steuerleiste waren auf Kapselbreite abgeschnitten
 
+### Aus dem Code-Review
+
+- Animierte WebP wurden immer in voller Auflösung dekodiert und der Puffer nur nach
+  Frame-Anzahl begrenzt: eine 4000x4000-Animation hätte 1.5 GB belegt. Frames werden
+  jetzt auf Anzeigegrösse verkleinert, der Puffer ist auf 64 MB begrenzt
+- Der WebP-Decoder reichte einen Zeiger aus `Data.withUnsafeBytes` an libwebp weiter,
+  das ihn behält und später daraus liest. Er besitzt seinen Puffer jetzt selbst;
+  geprüft mit 3000 dekodierten Frames unter dem Address Sanitizer
+- Konnte keine Datei gelesen werden, rief sich der Bildwechsel unbegrenzt selbst auf.
+  Jetzt eine Schleife mit Rundendeckel und sichtbarer Fehlermeldung
+- Ken-Burns konnte bei Skalierung 1.0 einen leeren Rand zeigen und hielt bei ganz
+  abgespielten Animationen zu früh an
+- Vorauslade-Aufgaben wurden nie abgebrochen und füllten den geleerten Cache neu
+- Der Frame-Producer lief bei unlesbaren Dateien mit 100 Hz leer
+- Zwei unzutreffende `@unchecked Sendable`-Zusagen entfernt
+- Meldungen gehen an `os.Logger` statt still verloren
+
 ## 1.1.0 - 2026-08-16
 
 - Animierte WebP, GIF und APNG werden abgespielt statt als Standbild gezeigt

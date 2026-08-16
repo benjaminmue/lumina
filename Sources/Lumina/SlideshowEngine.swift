@@ -75,7 +75,7 @@ final class SlideshowEngine: ObservableObject {
     private let loader: ImageLoader
     private var config: SlideshowConfig
     private var loopTask: Task<Void, Never>?
-    private var pending: Command?
+    private var pending: [Command] = []
     private var slideCounter = 0
     private let tick = Duration.milliseconds(40)
 
@@ -133,15 +133,17 @@ final class SlideshowEngine: ObservableObject {
     func pause() { isPaused = true }
     func resume() { isPaused = false }
 
-    func next() { pending = .next }
-    func previous() { pending = .previous }
-    func jump(to index: Int) { pending = .jump(index) }
+    // Warteschlange statt einzelnem Slot: mehrere schnelle Tastendrücke innerhalb
+    // eines Ticks hätten einander sonst überschrieben.
+    func next() { pending.append(.next) }
+    func previous() { pending.append(.previous) }
+    func jump(to index: Int) { pending.append(.jump(index)) }
 
     // MARK: - Ablauf
 
     private func run() async {
         guard !sequence.isEmpty else { return }
-        await present(transitionStyle: .cut)
+        await present(transitionStyle: .cut, mayWrap: config.loop)
 
         var elapsed: Double = 0
         var lastTick = ContinuousClock.now
@@ -154,8 +156,8 @@ final class SlideshowEngine: ObservableObject {
             let delta = (now - lastTick).seconds
             lastTick = now
 
-            if let command = pending {
-                pending = nil
+            if !pending.isEmpty {
+                let command = pending.removeFirst()
                 await handle(command)
                 elapsed = 0
                 continue
@@ -172,7 +174,7 @@ final class SlideshowEngine: ObservableObject {
                     didFinish = true
                     continue
                 }
-                await present(transitionStyle: config.transition)
+                await present(transitionStyle: config.transition, mayWrap: config.loop)
             }
         }
     }
@@ -189,7 +191,8 @@ final class SlideshowEngine: ObservableObject {
         case .jump(let index):
             sequence.jump(to: index)
         }
-        await present(transitionStyle: config.transition)
+        // Manuelles Blättern läuft immer im Kreis, auch ohne Loop-Einstellung.
+        await present(transitionStyle: config.transition, mayWrap: true)
     }
 
     /// Lädt das Bild am aktuellen Index und blendet es ein.
@@ -198,7 +201,11 @@ final class SlideshowEngine: ObservableObject {
     /// ist keine einzige lesbar, muss die Show enden statt im Kreis zu laufen.
     /// Ein rekursiver Aufruf lief hier früher unbegrenzt weiter, weil
     /// `advance(loop: true)` am Listenende immer `true` liefert.
-    private func present(transitionStyle: TransitionStyle) async {
+    /// - Parameter mayWrap: Ob beim Überspringen defekter Dateien an den Listenanfang
+    ///   gesprungen werden darf. Bei manuellen Kommandos ja, im normalen Ablauf nur,
+    ///   wenn Endlosschleife eingestellt ist - sonst liefe eine Show ohne Wiederholung
+    ///   über eine defekte Datei zurück auf Bild 1 und endete nie.
+    private func present(transitionStyle: TransitionStyle, mayWrap: Bool) async {
         for _ in 0..<max(sequence.count, 1) {
             guard let item = sequence.current else { return }
 
@@ -210,7 +217,7 @@ final class SlideshowEngine: ObservableObject {
                 return
             }
 
-            guard sequence.count > 1, sequence.advance(loop: true) else { break }
+            guard sequence.count > 1, sequence.advance(loop: mayWrap) else { break }
         }
 
         didFinish = true

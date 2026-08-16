@@ -17,6 +17,11 @@ final class AnimationPlayback: ObservableObject {
     /// Die Byte-Grenze ist die entscheidende: die Frame-Grösse hängt an der Auflösung
     /// der Datei und schwankt um mehr als den Faktor 50. Eine Grenze allein nach
     /// Frame-Anzahl liesse bei grossen Vorlagen den Speicher volllaufen.
+    ///
+    /// Sie wirkt weich: geprüft wird vor dem Dekodieren, die Grösse des nächsten
+    /// Frames steht erst danach fest. Überschritten wird sie also um höchstens einen
+    /// Frame. Da der Decoder auf die Anzeigegrösse begrenzt ist, sind das bei einem
+    /// 5K-Bildschirm rund 26 MB.
     private let bufferFrames = 24
     private let bufferBytes = 64 * 1024 * 1024
 
