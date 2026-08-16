@@ -53,6 +53,16 @@ einem zur macOS-Idiomatik.
 - Zwei unzutreffende `@unchecked Sendable`-Zusagen entfernt
 - Meldungen gehen an `os.Logger` statt still verloren
 
+### Aus dem zweiten Review-Durchgang
+
+- Eine laufende Dekodierung wurde unabhängig von der angeforderten Zielgrösse geteilt und
+  ihr Ergebnis unter der grösseren Anfrage gespeichert. Danach galt ein zu klein dekodiertes
+  Bild dauerhaft als gross genug
+- Das Überspringen unlesbarer Dateien sprang immer an den Listenanfang, auch ohne
+  eingeschaltete Wiederholung: eine Show mit einer defekten Datei am Ende endete nie
+- Mehrere schnelle Tastendrücke innerhalb eines Ticks überschrieben einander, weil nur ein
+  Kommando zwischengespeichert wurde
+
 ## 1.1.0 - 2026-08-16
 
 - Animierte WebP, GIF und APNG werden abgespielt statt als Standbild gezeigt
