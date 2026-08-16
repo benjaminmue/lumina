@@ -25,11 +25,9 @@ struct SettingsInspector: View {
             Task { await app.reload() }
         }
         .onChange(of: app.config.slideDuration) { _, _ in
-            // Ein Übergang, der länger dauert als die Standzeit, würde das Bild nie ruhen lassen.
-            let limit = app.config.slideDuration * 0.8
-            if app.config.transitionDuration > limit {
-                app.config.transitionDuration = limit
-            }
+            // Ein Übergang, der länger dauert als die Standzeit, würde das Bild nie
+            // ruhen lassen. Die Regel steht in sanitized() und wird hier nur angewandt.
+            app.config = app.config.sanitized()
         }
     }
 
@@ -57,7 +55,7 @@ struct SettingsInspector: View {
     private var playbackSection: some View {
         Section("Wiedergabe") {
             LabeledContent("Anzeigedauer") {
-                sliderRow(value: $app.config.slideDuration, range: 1...60, step: 0.5)
+                sliderRow(value: $app.config.slideDuration, range: SlideshowConfig.durationRange, step: 0.5)
             }
 
             Picker("Übergang", selection: $app.config.transition) {
@@ -69,7 +67,7 @@ struct SettingsInspector: View {
             // Ausblenden statt ausgrauen: ein deaktivierter Regler ist nur Ballast.
             if app.config.transition != .cut {
                 LabeledContent("Übergangsdauer") {
-                    sliderRow(value: $app.config.transitionDuration, range: 0...3, step: 0.1)
+                    sliderRow(value: $app.config.transitionDuration, range: SlideshowConfig.transitionRange, step: 0.1)
                 }
             }
 

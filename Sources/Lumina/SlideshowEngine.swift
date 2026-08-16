@@ -3,10 +3,6 @@ import Foundation
 import LuminaCore
 import SwiftUI
 
-/// Ein sichtbares Bild samt aufgelöstem Übergang.
-///
-/// `id` zählt hoch statt die URL zu spiegeln, damit SwiftUI auch dann einen Wechsel
-/// animiert, wenn dasselbe Bild zweimal hintereinander erscheint (Liste mit einem Bild).
 /// Bildinhalt eines Slides: Standbild oder Animation (WebP, GIF, APNG).
 ///
 /// Animationen halten keine Frames, sondern nur das erste Bild und die Quelle -
@@ -32,6 +28,10 @@ enum SlideContent {
     }
 }
 
+/// Ein sichtbares Bild samt aufgelöstem Übergang.
+///
+/// `id` zählt hoch statt die URL zu spiegeln, damit SwiftUI auch dann einen Wechsel
+/// animiert, wenn dasselbe Bild zweimal hintereinander erscheint (Liste mit einem Bild).
 struct Slide: Identifiable, Equatable {
     let id: Int
     let item: MediaItem
@@ -53,7 +53,8 @@ final class SlideshowEngine: ObservableObject {
     @Published private(set) var slide: Slide?
     @Published private(set) var sequence: SlideshowSequence
     @Published private(set) var isPaused = false
-    @Published private(set) var isLoading = false
+    /// Gesetzt, wenn keine einzige Datei gelesen werden konnte.
+    @Published private(set) var loadFailure: String?
     /// Fortschritt der aktuellen Standzeit, 0...1.
     @Published private(set) var progress: Double = 0
     /// Wird gesetzt, wenn ohne Loop das letzte Bild gezeigt wurde.
@@ -150,8 +151,7 @@ final class SlideshowEngine: ObservableObject {
             if Task.isCancelled { break }
 
             let now = ContinuousClock.now
-            let delta = Double((now - lastTick).components.attoseconds) / 1e18
-                + Double((now - lastTick).components.seconds)
+            let delta = (now - lastTick).seconds
             lastTick = now
 
             if let command = pending {
@@ -179,6 +179,7 @@ final class SlideshowEngine: ObservableObject {
 
     private func handle(_ command: Command) async {
         didFinish = false
+        loadFailure = nil
         switch command {
         case .next:
             // Manuelles Weiterschalten läuft immer im Kreis, auch ohne Loop-Einstellung.
@@ -192,29 +193,40 @@ final class SlideshowEngine: ObservableObject {
     }
 
     /// Lädt das Bild am aktuellen Index und blendet es ein.
+    ///
+    /// Defekte Dateien werden übersprungen, aber höchstens eine volle Runde lang:
+    /// ist keine einzige lesbar, muss die Show enden statt im Kreis zu laufen.
+    /// Ein rekursiver Aufruf lief hier früher unbegrenzt weiter, weil
+    /// `advance(loop: true)` am Listenende immer `true` liefert.
     private func present(transitionStyle: TransitionStyle) async {
-        guard let item = sequence.current else { return }
+        for _ in 0..<max(sequence.count, 1) {
+            guard let item = sequence.current else { return }
 
-        isLoading = true
-        let content = await load(item: item)
-        isLoading = false
+            let content = await load(item: item)
 
-        guard let content else {
-            // Defekte oder gelöschte Datei: überspringen, aber Endlosschleife vermeiden.
-            if sequence.count > 1, sequence.advance(loop: config.loop) {
-                await present(transitionStyle: transitionStyle)
+            if let content {
+                show(content, of: item, transitionStyle: transitionStyle)
+                await loader.prefetch(sequence.upcomingURLs(count: 2), maxPixelSize: targetPixelSize)
+                return
             }
-            return
+
+            guard sequence.count > 1, sequence.advance(loop: true) else { break }
         }
 
+        didFinish = true
+        loadFailure = "Keine der gewählten Dateien konnte gelesen werden."
+    }
+
+    /// Setzt den neuen Slide und startet den Übergang.
+    private func show(_ content: SlideContent, of item: MediaItem, transitionStyle: TransitionStyle) {
         currentSlideDuration = slideDuration(for: content)
         slideCounter += 1
-        let resolved = transitionStyle.resolved(seed: item.seed &+ UInt64(slideCounter))
+
         let newSlide = Slide(
             id: slideCounter,
             item: item,
             content: content,
-            transition: resolved,
+            transition: transitionStyle.resolved(seed: item.seed &+ UInt64(slideCounter)),
             direction: sequence.lastDirection
         )
 
@@ -225,8 +237,6 @@ final class SlideshowEngine: ObservableObject {
         } else {
             slide = newSlide
         }
-
-        await loader.prefetch(sequence.upcomingURLs(count: 2), maxPixelSize: targetPixelSize)
     }
 
     /// Lädt das Standbild und - bei animierten Dateien - die Kopfdaten der Animation.

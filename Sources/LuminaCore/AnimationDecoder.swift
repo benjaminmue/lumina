@@ -19,6 +19,9 @@ public struct AnimationInfo: Equatable, Sendable {
 }
 
 /// Ein dekodierter Frame samt seiner Anzeigedauer.
+/// `@unchecked`, weil `CGImage` nicht als Sendable deklariert ist. Der Wert ist nach
+/// der Erzeugung unveränderlich, gleichzeitiges Lesen ist darum sicher. Die Struct
+/// wandert vom dekodierenden Hintergrund-Task zur Anzeige und braucht die Zusage.
 public struct TimedFrame: @unchecked Sendable {
     public let image: CGImage
     public let delay: Double
@@ -38,7 +41,10 @@ public struct TimedFrame: @unchecked Sendable {
 /// 0.021 s beim sequenziellen Durchlauf). Darum wird strikt vorwärts gelesen und
 /// die Quelle für einen neuen Durchlauf komplett neu geöffnet - genau so, wie es
 /// Vorschau und QuickLook machen.
-public final class AnimationDecoder: @unchecked Sendable {
+///
+/// Nicht threadsicher: die Instanz hält einen Dekodier-Cursor und gehört jeweils
+/// genau einem Task. Darum bewusst nicht `Sendable`.
+public final class AnimationDecoder {
     private let url: URL
     private let maxPixelSize: Int
     private var source: CGImageSource?
@@ -53,7 +59,7 @@ public final class AnimationDecoder: @unchecked Sendable {
         self.url = url
         self.maxPixelSize = maxPixelSize
         self.info = info
-        self.webp = WebPAnimationDecoder(url: url)
+        self.webp = WebPAnimationDecoder(url: url, maxPixelSize: maxPixelSize)
         self.source = webp == nil ? CGImageSourceCreateWithURL(url as CFURL, nil) : nil
     }
 

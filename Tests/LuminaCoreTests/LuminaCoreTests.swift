@@ -470,14 +470,14 @@ final class WebPAnimationTests: XCTestCase {
     private func fixture(_ name: String) throws -> URL {
         let base = try XCTUnwrap(Bundle.module.resourceURL).appendingPathComponent("Fixtures")
         let url = base.appendingPathComponent(name)
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            throw XCTSkip("Testdatei \(name) nicht gefunden")
-        }
+        // Kein XCTSkip: die Dateien liegen im Repo und werden von Package.swift
+        // kopiert. Fehlen sie, ist das Resource-Setup kaputt und muss auffallen.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "Testdatei \(name) fehlt")
         return url
     }
 
     func testWebPDecoderReadsAnimation() throws {
-        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 2000))
         XCTAssertEqual(decoder.frameCount, 6)
         XCTAssertEqual(decoder.width, 400)
         XCTAssertEqual(decoder.height, 300)
@@ -485,7 +485,7 @@ final class WebPAnimationTests: XCTestCase {
     }
 
     func testWebPDecoderYieldsDistinctFrames() throws {
-        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 2000))
         let first = try XCTUnwrap(decoder.next()).image
         let second = try XCTUnwrap(decoder.next()).image
         XCTAssertFalse(first === second)
@@ -493,13 +493,13 @@ final class WebPAnimationTests: XCTestCase {
     }
 
     func testWebPDecoderReportsFrameDelay() throws {
-        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 2000))
         let frame = try XCTUnwrap(decoder.next())
         XCTAssertEqual(frame.delay, 0.2, accuracy: 0.02)
     }
 
     func testWebPDecoderLoops() throws {
-        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 2000))
         // Sieben Abrufe bei sechs Frames: nach dem Umlauf muss weiter dekodiert werden.
         var images: [CGImage] = []
         for _ in 0..<7 {
@@ -512,7 +512,7 @@ final class WebPAnimationTests: XCTestCase {
     func testGIFIsRejectedByWebPDecoder() throws {
         // Ein GIF ist kein WebP - der Decoder muss ablehnen, damit ImageIO übernimmt.
         let url = try fixture("animated.gif")
-        XCTAssertNil(WebPAnimationDecoder(url: url))
+        XCTAssertNil(WebPAnimationDecoder(url: url, maxPixelSize: 2000))
     }
 
     func testFacadePicksLibWebPForWebPAndImageIOForGIF() throws {
@@ -525,13 +525,86 @@ final class WebPAnimationTests: XCTestCase {
     }
 
     func testWebPDecodingIsFasterThanPlayback() throws {
-        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 2000))
         let start = Date()
         for _ in 0..<6 { _ = decoder.next() }
         let perFrame = -start.timeIntervalSinceNow / 6
 
         // Muss deutlich unter typischen Frame-Delays liegen. Mit ImageIO lagen
         // vergleichbare Dateien bei 280 ms je Frame.
-        XCTAssertLessThan(perFrame, 0.016, "Dekodieren muss schneller sein als die Wiedergabe")
+        // Grosszügig gewählt: der Zweck ist die Regression gegen den ImageIO-Pfad
+        // mit 280 ms je Frame, nicht eine exakte Zeitmessung auf geteilten Runnern.
+        XCTAssertLessThan(perFrame, 0.05, "Dekodieren muss schneller sein als die Wiedergabe")
+    }
+}
+
+final class AnimationRobustnessTests: XCTestCase {
+
+    private func fixture(_ name: String) throws -> URL {
+        let base = try XCTUnwrap(Bundle.module.resourceURL).appendingPathComponent("Fixtures")
+        let url = base.appendingPathComponent(name)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "Testdatei \(name) fehlt")
+        return url
+    }
+
+    /// Deckt die Lebensdauer des libwebp-Puffers ab. Lief der Decoder auf
+    /// freigegebenem Speicher, faellt das bei vielen Durchlaeufen auf - besonders
+    /// unter `swift test -Xswiftc -sanitize=address`.
+    func testWebPDecoderSurvivesManyCycles() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 800))
+        for iteration in 0..<2000 {
+            let frame = decoder.next()
+            XCTAssertNotNil(frame, "Frame \(iteration) fehlt")
+        }
+    }
+
+    func testWebPDecoderRespectsMaxPixelSize() throws {
+        // Vorlage ist 400x300; die Begrenzung muss greifen, sonst haengt der
+        // Speicherbedarf der Wiedergabe allein an der Aufloesung der Datei.
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 100))
+        let frame = try XCTUnwrap(decoder.next())
+        XCTAssertLessThanOrEqual(max(frame.image.width, frame.image.height), 100)
+    }
+
+    func testWebPDecoderKeepsNativeSizeWhenLimitIsLarger() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 4000))
+        let frame = try XCTUnwrap(decoder.next())
+        XCTAssertEqual(frame.image.width, 400)
+    }
+
+    func testWebPFrameIndexAdvancesAndWraps() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 400))
+        let indices = (0..<8).compactMap { _ in decoder.next()?.index }
+        XCTAssertEqual(indices, [0, 1, 2, 3, 4, 5, 0, 1])
+    }
+
+    func testDecoderRejectsMissingFile() {
+        let missing = URL(fileURLWithPath: "/tmp/lumina-gibt-es-nicht-\(UUID().uuidString).webp")
+        XCTAssertNil(WebPAnimationDecoder(url: missing, maxPixelSize: 800))
+        XCTAssertNil(AnimationDecoder(url: missing, maxPixelSize: 800))
+        XCTAssertNil(AnimationDecoder.readInfo(url: missing))
+    }
+}
+
+final class KenBurnsCoverageTests: XCTestCase {
+
+    /// Der Schwenk darf nie ueber den Bildrand hinauslaufen: die kleinere der beiden
+    /// Skalierungen muss die Verschiebung decken, sonst entsteht ein leerer Rand.
+    func testScaleAlwaysCoversPan() {
+        for seed in UInt64(1)...200 {
+            for intensity in KenBurnsIntensity.allCases where intensity != .off {
+                let plan = KenBurnsPlan.make(seed: seed, intensity: intensity)
+                let travel = max(
+                    hypot(plan.startOffset.width, plan.startOffset.height),
+                    hypot(plan.endOffset.width, plan.endOffset.height)
+                )
+                let minimumScale = min(plan.startScale, plan.endScale)
+                XCTAssertGreaterThanOrEqual(
+                    Double(minimumScale - 1) + 0.0001,
+                    Double(travel) * 2,
+                    "Seed \(seed) / \(intensity)"
+                )
+            }
+        }
     }
 }

@@ -12,15 +12,18 @@ import SwiftUI
 final class AnimationPlayback: ObservableObject {
     @Published private(set) var frame: CGImage?
 
-    /// Wie viele Frames maximal vorausdekodiert werden.
+    /// Obergrenzen des Vorlaufs.
     ///
-    /// Bei 900x500 sind das rund 43 MB. Genug, um Schwankungen der Dekodierzeit
-    /// abzufangen, ohne den Speicher volllaufen zu lassen.
-    private let bufferCapacity = 24
+    /// Die Byte-Grenze ist die entscheidende: die Frame-Grösse hängt an der Auflösung
+    /// der Datei und schwankt um mehr als den Faktor 50. Eine Grenze allein nach
+    /// Frame-Anzahl liesse bei grossen Vorlagen den Speicher volllaufen.
+    private let bufferFrames = 24
+    private let bufferBytes = 64 * 1024 * 1024
 
     private let url: URL
     private let maxPixelSize: Int
     private var queue: [TimedFrame] = []
+    private var queuedBytes = 0
     private var producer: Task<Void, Never>?
     private var consumer: Task<Void, Never>?
     private var isPaused: Bool
@@ -36,25 +39,32 @@ final class AnimationPlayback: ObservableObject {
 
         let url = self.url
         let maxPixelSize = self.maxPixelSize
-        let capacity = bufferCapacity
 
         producer = Task.detached(priority: .userInitiated) { [weak self] in
             guard let decoder = AnimationDecoder(url: url, maxPixelSize: maxPixelSize) else { return }
+            var consecutiveFailures = 0
 
             while !Task.isCancelled {
                 // Backpressure: ist der Puffer voll, wird nicht weiter dekodiert.
                 // Das hält auch bei Pause die CPU ruhig.
                 while true {
-                    guard let count = await self?.queueCount else { return }
-                    if count < capacity { break }
+                    guard let hasSpace = await self?.hasBufferSpace else { return }
+                    if hasSpace { break }
                     try? await Task.sleep(for: .milliseconds(20))
                     if Task.isCancelled { return }
                 }
+
                 guard let frame = decoder.next() else {
-                    // Defekter Frame: weiter, aber nicht heisslaufen.
+                    consecutiveFailures += 1
+                    // Nach einer vollen Runde ohne einen einzigen brauchbaren Frame
+                    // ist die Datei nicht abspielbar - dann übernimmt das Standbild,
+                    // statt dass der Task mit 100 Hz ins Leere läuft.
+                    guard consecutiveFailures < max(decoder.frameCount, 8) else { return }
                     try? await Task.sleep(for: .milliseconds(10))
                     continue
                 }
+
+                consecutiveFailures = 0
                 await self?.enqueue(frame)
             }
         }
@@ -70,6 +80,7 @@ final class AnimationPlayback: ObservableObject {
         producer = nil
         consumer = nil
         queue.removeAll()
+        queuedBytes = 0
     }
 
     func setPaused(_ paused: Bool) {
@@ -78,14 +89,20 @@ final class AnimationPlayback: ObservableObject {
 
     // MARK: - Puffer
 
-    private var queueCount: Int { queue.count }
+    private var hasBufferSpace: Bool {
+        queue.count < bufferFrames && queuedBytes < bufferBytes
+    }
 
     private func enqueue(_ frame: TimedFrame) {
         queue.append(frame)
+        queuedBytes += frame.image.bytesPerRow * frame.image.height
     }
 
     private func dequeue() -> TimedFrame? {
-        queue.isEmpty ? nil : queue.removeFirst()
+        guard !queue.isEmpty else { return nil }
+        let frame = queue.removeFirst()
+        queuedBytes = max(0, queuedBytes - frame.image.bytesPerRow * frame.image.height)
+        return frame
     }
 
     /// Zeigt Frames im Takt ihrer Delays. Bei leerem Puffer wird kurz gewartet,

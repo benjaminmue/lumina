@@ -37,19 +37,20 @@ public struct KenBurnsPlan: Equatable, Sendable {
         // Die Hälfte der Bilder zoomt rein, die andere raus - das wirkt weniger monoton.
         let zoomsIn = Bool.random(using: &rng)
         let amplitude = CGFloat(Double.random(in: (zoom.upperBound - 1) * 0.6...(zoom.upperBound - 1), using: &rng))
-        let low: CGFloat = 1.0
-        let high: CGFloat = 1.0 + amplitude
 
-        // Bei Zoom muss immer die grössere Skalierung als Basis dienen, sonst
-        // entstehen im ausgezoomten Zustand leere Ränder.
-        let startScale = zoomsIn ? low : high
-        let endScale = zoomsIn ? high : low
-
-        // Schwenkrichtung: eine der acht Himmelsrichtungen, Länge zufällig.
+        // Schwenkrichtung frei im Kreis, Länge zufällig.
         let angle = Double.random(in: 0..<(2 * .pi), using: &rng)
         let distance = Double.random(in: pan * 0.4...pan, using: &rng)
         let dx = CGFloat(cos(angle) * distance)
         let dy = CGFloat(sin(angle) * distance)
+
+        // Der Schwenk verschiebt das Bild um bis zu `distance` der Kantenlänge. Die
+        // kleinere der beiden Skalierungen muss das decken, sonst läuft bei
+        // Skalierung 1.0 eine Kante aus dem Bild und es entsteht ein leerer Rand.
+        let low: CGFloat = 1.0 + CGFloat(distance)
+        let high: CGFloat = low + amplitude
+        let startScale = zoomsIn ? low : high
+        let endScale = zoomsIn ? high : low
 
         return KenBurnsPlan(
             startScale: startScale,

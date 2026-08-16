@@ -61,12 +61,14 @@ struct LuminaCommands: Commands {
 
             // Kein Tastenkürzel: die Leertaste hängt am Raster selbst, als Menükürzel
             // würde sie auch im Suchfeld und im Player abgefangen.
+            // Während der Wiedergabe gesperrt: die Engine arbeitet mit einer Kopie
+            // der Liste, Änderungen wirkten erst beim nächsten Start.
             Button("Markierte entfernen") { app.removeSelected() }
-                .disabled(app.selection.isEmpty)
+                .disabled(app.selection.isEmpty || app.isPresenting)
             Button("Alle entfernen") { app.disableAll() }
-                .disabled(app.items.isEmpty)
+                .disabled(app.items.isEmpty || app.isPresenting)
             Button("Alle zurückholen") { app.enableAll() }
-                .disabled(app.removedCount == 0)
+                .disabled(app.removedCount == 0 || app.isPresenting)
         }
 
         CommandGroup(after: .pasteboard) {

@@ -102,7 +102,7 @@ brew install webp
 ./scripts/build-app.sh              # builds dist/Lumina.app
 ./scripts/build-app.sh --install    # also copies it to /Applications
 ./scripts/make-dmg.sh               # builds dist/Lumina-<version>.dmg
-swift test                          # 51 unit tests (XCTest needs Xcode)
+swift test                          # 57 unit tests (XCTest needs Xcode)
 swift scripts/make-icon.swift       # regenerates Resources/AppIcon.icns
 ```
 
@@ -133,6 +133,14 @@ Sources/Lumina/         SwiftUI interface
 Images are downsampled while decoding (`CGImageSourceCreateThumbnailAtIndex`), otherwise a
 60 megapixel RAW would land in memory as a 240 MB bitmap. Thumbnails and fullscreen images use
 separate caches so the many small ones cannot evict the large ones.
+
+## Diagnostics
+
+```bash
+log stream --predicate 'subsystem == "ch.bebamu.lumina"'
+```
+
+Unreadable or undecodable files are logged there by name.
 
 ## Known quirks
 

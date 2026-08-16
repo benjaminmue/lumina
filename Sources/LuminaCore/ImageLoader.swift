@@ -1,12 +1,20 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import os
 import UniformTypeIdentifiers
 
 /// Lädt Bilder von der Platte, skaliert sie beim Dekodieren herunter und hält sie im Cache.
 ///
 /// Ohne Downsampling würde ein 60-Megapixel-RAW als 240-MB-Bitmap im Speicher landen.
 /// `CGImageSourceCreateThumbnailAtIndex` dekodiert stattdessen direkt in der Zielgrösse.
+/// Gemeinsames Log der Bildverarbeitung.
+///
+/// Ohne Log bleibt bei einer Meldung wie "die Slideshow bleibt schwarz" nichts
+/// nachzusehen. Auslesen mit:
+/// `log stream --predicate 'subsystem == "ch.bebamu.lumina"'`
+let imageLog = Logger(subsystem: "ch.bebamu.lumina", category: "images")
+
 public actor ImageLoader {
     /// NSCache braucht Klassen-Typen, CGImage ist ein CF-Typ - darum dieser Wrapper.
     private final class CachedImage: NSObject {
@@ -63,7 +71,14 @@ public actor ImageLoader {
             return cached.image
         }
         if let running = inFlight[url.path] {
-            return await running.value
+            let shared = await running.value
+            // Der Vorauslade-Task schreibt den Cache erst danach; ohne diese Zeile
+            // liefe ein direkt folgender cachedImage-Aufruf ins Leere.
+            if let shared {
+                cache.insert(CachedImage(image: shared, pixelSize: maxPixelSize), for: url.path,
+                             cost: shared.bytesPerRow * shared.height)
+            }
+            return shared
         }
 
         let task = Task.detached(priority: .userInitiated) { () -> CGImage? in
@@ -104,6 +119,8 @@ public actor ImageLoader {
     }
 
     private func finishPrefetch(url: URL, image: CGImage?, maxPixelSize: Int) {
+        // Der Task kann den Wettlauf gegen clearCache verloren haben.
+        guard inFlight[url.path] != nil else { return }
         inFlight[url.path] = nil
         guard let image else { return }
         let cost = image.bytesPerRow * image.height
@@ -111,8 +128,18 @@ public actor ImageLoader {
     }
 
     public func clearCache() {
+        cancelPrefetches()
         cache.removeAll()
         infoCache.removeAll()
+    }
+
+    /// Bricht laufende Vorauslade-Aufgaben ab.
+    ///
+    /// Ohne das dekodiert die App nach dem Leeren der Liste oder dem Verlassen der
+    /// Slideshow noch Bilder fertig und legt sie in den gerade geleerten Cache.
+    public func cancelPrefetches() {
+        for task in inFlight.values { task.cancel() }
+        inFlight.removeAll()
     }
 
     // MARK: - Animationen
@@ -139,7 +166,10 @@ public actor ImageLoader {
     /// Dekodiert eine Bilddatei direkt in Zielgrösse und richtet sie nach EXIF-Orientierung aus.
     nonisolated static func decode(url: URL, maxPixelSize: Int) -> CGImage? {
         let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions as CFDictionary) else { return nil }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions as CFDictionary) else {
+            imageLog.notice("Datei nicht lesbar: \(url.lastPathComponent, privacy: .public)")
+            return nil
+        }
 
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -147,7 +177,11 @@ public actor ImageLoader {
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
         ]
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            imageLog.notice("Nicht dekodierbar: \(url.lastPathComponent, privacy: .public)")
+            return nil
+        }
+        return image
     }
 
     /// Liest nur die Bildabmessungen, ohne die Pixel zu dekodieren.

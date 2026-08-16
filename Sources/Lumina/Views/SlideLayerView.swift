@@ -6,6 +6,10 @@ import SwiftUI
 struct SlideLayerView: View {
     let slide: Slide
     let config: SlideshowConfig
+    /// Tatsächliche Standzeit dieses Bildes. Weicht von `config.slideDuration` ab,
+    /// wenn eine Animation ganz abgespielt wird - ohne das stünde die Kamerafahrt
+    /// den Rest der Zeit still.
+    let slideDuration: Double
     let isPaused: Bool
     /// Zielauflösung fürs Dekodieren der Animations-Frames.
     let maxPixelSize: Int
@@ -54,7 +58,7 @@ struct SlideLayerView: View {
                 // Der Startzustand muss einmal gerendert sein, sonst springt das Bild
                 // ohne Animation direkt in die Endlage.
                 DispatchQueue.main.async {
-                    withAnimation(.linear(duration: config.slideDuration + config.transitionDuration)) {
+                    withAnimation(.linear(duration: slideDuration + config.transitionDuration)) {
                         atEnd = true
                     }
                 }

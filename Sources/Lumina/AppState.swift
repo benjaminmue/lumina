@@ -1,7 +1,10 @@
 import AppKit
 import Combine
+import os
 import LuminaCore
 import SwiftUI
+
+private let stateLog = Logger(subsystem: "ch.bebamu.lumina", category: "state")
 
 /// Zentraler Zustand des Hauptfensters: geladene Bilder, Auswahl und Einstellungen.
 @MainActor
@@ -50,9 +53,15 @@ final class AppState: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if let data = defaults.data(forKey: Keys.config),
-           let decoded = try? JSONDecoder().decode(SlideshowConfig.self, from: data) {
-            self.config = decoded.sanitized()
+        if let data = defaults.data(forKey: Keys.config) {
+            do {
+                self.config = try JSONDecoder().decode(SlideshowConfig.self, from: data).sanitized()
+            } catch {
+                // Nicht stillschweigend zurücksetzen: sonst wundert man sich, warum
+                // alle Einstellungen weg sind, und findet nie heraus warum.
+                stateLog.error("Einstellungen unlesbar, Standardwerte aktiv: \(error.localizedDescription, privacy: .public)")
+                self.config = SlideshowConfig()
+            }
         } else {
             self.config = SlideshowConfig()
         }
@@ -290,7 +299,10 @@ final class AppState: ObservableObject {
     // MARK: - Persistenz
 
     private func persistConfig() {
-        guard let data = try? JSONEncoder().encode(config) else { return }
-        defaults.set(data, forKey: Keys.config)
+        do {
+            defaults.set(try JSONEncoder().encode(config), forKey: Keys.config)
+        } catch {
+            stateLog.error("Einstellungen nicht gespeichert: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }

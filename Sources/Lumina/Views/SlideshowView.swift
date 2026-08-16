@@ -49,6 +49,7 @@ struct SlideshowView: View {
                     SlideLayerView(
                         slide: slide,
                         config: config,
+                        slideDuration: engine.currentSlideDuration,
                         isPaused: engine.isPaused,
                         maxPixelSize: engine.targetPixelSize
                     )
@@ -87,6 +88,7 @@ struct SlideshowView: View {
             }
             .onDisappear {
                 engine.stop()
+                Task { await loader.cancelPrefetches() }
                 hideControlsTask?.cancel()
                 removeKeyMonitor()
                 NSCursor.unhide()
@@ -120,12 +122,24 @@ struct SlideshowView: View {
             }
 
             VStack(spacing: 10) {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(.white.opacity(0.8))
-                Text("Wird geladen …")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
+                if let failure = engine.loadFailure {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Text(failure)
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Button("Zurück") { onExit() }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 4)
+                } else {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white.opacity(0.8))
+                    Text("Wird geladen …")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
             }
         }
         .transition(.opacity)
