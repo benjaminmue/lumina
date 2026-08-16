@@ -43,7 +43,12 @@ struct SlideshowView: View {
                     .ignoresSafeArea()
 
                 if let slide = engine.slide {
-                    SlideLayerView(slide: slide, config: config, isPaused: engine.isPaused)
+                    SlideLayerView(
+                        slide: slide,
+                        config: config,
+                        isPaused: engine.isPaused,
+                        maxPixelSize: engine.targetPixelSize
+                    )
                         .id(slide.id)
                         .transition(
                             SlideTransitions.transition(

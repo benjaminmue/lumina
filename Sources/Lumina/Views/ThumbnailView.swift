@@ -33,8 +33,8 @@ struct ThumbnailView: View {
         .help(item.url.path)
         .task(id: item.url) {
             image = await loader.image(for: item.url, maxPixelSize: 320)
-            // Liest nur den Container-Header, kostet also kaum etwas.
-            frameCount = ImageLoader.frameCount(of: item.url)
+            // Kopfdaten statt Pixel: der Loader liest sie im Hintergrund und merkt sie sich.
+            frameCount = await loader.animationInfo(for: item.url)?.frameCount ?? 1
         }
     }
 

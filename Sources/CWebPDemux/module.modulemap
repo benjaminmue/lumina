@@ -1,0 +1,6 @@
+module CWebPDemux [system] {
+    umbrella header "include/shim.h"
+    link "webp"
+    link "webpdemux"
+    export *
+}

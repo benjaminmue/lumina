@@ -7,6 +7,8 @@ struct SlideLayerView: View {
     let slide: Slide
     let config: SlideshowConfig
     let isPaused: Bool
+    /// Zielauflösung fürs Dekodieren der Animations-Frames.
+    let maxPixelSize: Int
 
     @State private var atEnd = false
 
@@ -66,44 +68,52 @@ struct SlideLayerView: View {
         case .still(let image):
             Image(decorative: image, scale: 1, orientation: .up)
                 .resizable()
+                // Viele Cinemagraphs sind nur wenige hundert Pixel breit und müssen
+                // stark vergrössert werden - die bessere Interpolation lohnt sich.
+                .interpolation(.high)
                 .aspectRatio(contentMode: contentMode)
 
-        case .animated(let animation):
-            AnimatedSlideView(animation: animation, contentMode: contentMode, isPaused: isPaused)
+        case .animated(let poster, let url, _):
+            AnimatedSlideView(
+                url: url,
+                poster: poster,
+                maxPixelSize: maxPixelSize,
+                contentMode: contentMode,
+                isPaused: isPaused
+            )
         }
     }
 }
 
-/// Spielt die Frames eines animierten Bildes ab (WebP, GIF, APNG).
-///
-/// `TimelineView(.animation)` taktet mit der Bildwiederholrate des Displays; der
-/// sichtbare Frame ergibt sich aus der verstrichenen Zeit und den Frame-Delays.
+/// Spielt eine animierte Datei im Stream ab und zeigt bis zum ersten dekodierten
+/// Frame das Standbild - dadurch ist sofort etwas zu sehen.
 private struct AnimatedSlideView: View {
-    let animation: AnimatedImage
+    let url: URL
+    let poster: CGImage
+    let maxPixelSize: Int
     let contentMode: ContentMode
     let isPaused: Bool
 
-    @State private var start: Date?
+    @StateObject private var playback: AnimationPlayback
+
+    init(url: URL, poster: CGImage, maxPixelSize: Int, contentMode: ContentMode, isPaused: Bool) {
+        self.url = url
+        self.poster = poster
+        self.maxPixelSize = maxPixelSize
+        self.contentMode = contentMode
+        self.isPaused = isPaused
+        _playback = StateObject(
+            wrappedValue: AnimationPlayback(url: url, maxPixelSize: maxPixelSize, isPaused: isPaused)
+        )
+    }
 
     var body: some View {
-        TimelineView(.animation(paused: isPaused)) { context in
-            let begin = start ?? context.date
-            let elapsed = context.date.timeIntervalSince(begin)
-            let frame = animation.frame(at: elapsed) ?? animation.first
-
-            Group {
-                if let frame {
-                    Image(decorative: frame, scale: 1, orientation: .up)
-                        .resizable()
-                        .aspectRatio(contentMode: contentMode)
-                } else {
-                    Color.clear
-                }
-            }
-            .onAppear {
-                // Zeitbasis erst beim ersten Frame setzen, sonst zählt die Ladezeit mit.
-                if start == nil { start = context.date }
-            }
-        }
+        Image(decorative: playback.frame ?? poster, scale: 1, orientation: .up)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: contentMode)
+            .onAppear { playback.start() }
+            .onDisappear { playback.stop() }
+            .onChange(of: isPaused) { _, paused in playback.setPaused(paused) }
     }
 }

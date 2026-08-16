@@ -309,53 +309,79 @@ final class AnimationDecodingTests: XCTestCase {
         let url = try makeAnimatedGIF(frames: 5, delay: 0.2)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        XCTAssertEqual(ImageLoader.frameCount(of: url), 5)
-        XCTAssertTrue(ImageLoader.isAnimated(url))
+        let info = try XCTUnwrap(AnimationDecoder.readInfo(url: url))
+        XCTAssertEqual(info.frameCount, 5)
+        XCTAssertTrue(info.isAnimated)
+        XCTAssertEqual(info.totalDuration, 1.0, accuracy: 0.05)
     }
 
-    func testAllFramesAndDelaysAreDecoded() throws {
-        let url = try makeAnimatedGIF(frames: 5, delay: 0.2)
-        defer { try? FileManager.default.removeItem(at: url) }
-
-        let result = ImageLoader.decodeAnimation(url: url, maxPixelSize: 800, budgetBytes: 256 * 1024 * 1024)
-        let animation = try XCTUnwrap(result?.0)
-
-        XCTAssertEqual(animation.frameCount, 5)
-        XCTAssertEqual(animation.totalDuration, 1.0, accuracy: 0.05)
-        // Frames müssen sich unterscheiden - sonst wäre wieder nur Index 0 geladen.
-        XCTAssertFalse(animation.frame(at: 0.0) === animation.frame(at: 0.5))
-    }
-
-    func testStillImageYieldsNoAnimation() throws {
+    func testStillImageIsNotAnimated() throws {
         let url = try makeAnimatedGIF(frames: 1, delay: 0.2)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        XCTAssertFalse(ImageLoader.isAnimated(url))
-        XCTAssertNil(ImageLoader.decodeAnimation(url: url, maxPixelSize: 800, budgetBytes: 256 * 1024 * 1024))
+        let info = try XCTUnwrap(AnimationDecoder.readInfo(url: url))
+        XCTAssertFalse(info.isAnimated)
+        // Der Decoder verweigert Einzelbilder, damit der Standbild-Weg greift.
+        XCTAssertNil(AnimationDecoder(url: url, maxPixelSize: 800))
     }
 
-    func testDecodeNeverExceedsMemoryBudget() throws {
-        let url = try makeAnimatedGIF(frames: 20, delay: 0.05, size: 1200)
+    func testDecoderWalksThroughAllFramesInOrder() throws {
+        let url = try makeAnimatedGIF(frames: 5, delay: 0.2)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        let budget = 24 * 1024 * 1024
-        let result = ImageLoader.decodeAnimation(url: url, maxPixelSize: 2560, budgetBytes: budget)
-
-        if let (animation, usedSize) = result {
-            let bytes = animation.frames.reduce(0) { $0 + $1.bytesPerRow * $1.height }
-            XCTAssertLessThanOrEqual(bytes, budget, "Dekodierte Frames sprengen das Budget")
-            XCTAssertLessThanOrEqual(usedSize, 1200, "Nie über die native Auflösung hinaus dekodieren")
-        }
-        // Kein Ergebnis ist zulässig: dann fällt der Player auf das Standbild zurück.
+        let decoder = try XCTUnwrap(AnimationDecoder(url: url, maxPixelSize: 800))
+        let indices = (0..<5).compactMap { _ in decoder.next()?.index }
+        XCTAssertEqual(indices, [0, 1, 2, 3, 4])
     }
 
-    func testDecodeDoesNotUpscaleBeyondNativeSize() throws {
-        let url = try makeAnimatedGIF(frames: 3, delay: 0.1, size: 200)
+    func testDecoderLoopsBackToStart() throws {
+        let url = try makeAnimatedGIF(frames: 3, delay: 0.1)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        let result = ImageLoader.decodeAnimation(url: url, maxPixelSize: 4000, budgetBytes: 256 * 1024 * 1024)
-        let frame = try XCTUnwrap(result?.0.first)
-        XCTAssertLessThanOrEqual(frame.width, 200)
+        let decoder = try XCTUnwrap(AnimationDecoder(url: url, maxPixelSize: 800))
+        // Zwei volle Durchläufe: nach dem letzten Frame muss wieder Index 0 kommen.
+        let indices = (0..<6).compactMap { _ in decoder.next()?.index }
+        XCTAssertEqual(indices, [0, 1, 2, 0, 1, 2])
+    }
+
+    func testDecoderReportsDelayPerFrame() throws {
+        let url = try makeAnimatedGIF(frames: 3, delay: 0.25)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let decoder = try XCTUnwrap(AnimationDecoder(url: url, maxPixelSize: 800))
+        let frame = try XCTUnwrap(decoder.next())
+        XCTAssertEqual(frame.delay, 0.25, accuracy: 0.02)
+    }
+
+    func testDecoderYieldsDistinctFrames() throws {
+        let url = try makeAnimatedGIF(frames: 4, delay: 0.1)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let decoder = try XCTUnwrap(AnimationDecoder(url: url, maxPixelSize: 800))
+        let first = try XCTUnwrap(decoder.next()).image
+        let second = try XCTUnwrap(decoder.next()).image
+        // Wären es identische Objekte, käme wieder nur Frame 0 heraus.
+        XCTAssertFalse(first === second)
+    }
+
+    func testDecoderRespectsTargetSize() throws {
+        let url = try makeAnimatedGIF(frames: 3, delay: 0.1, size: 800)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let decoder = try XCTUnwrap(AnimationDecoder(url: url, maxPixelSize: 200))
+        let frame = try XCTUnwrap(decoder.next())
+        XCTAssertLessThanOrEqual(frame.image.width, 200)
+    }
+
+    func testRewindRestartsFromFirstFrame() throws {
+        let url = try makeAnimatedGIF(frames: 4, delay: 0.1)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let decoder = try XCTUnwrap(AnimationDecoder(url: url, maxPixelSize: 400))
+        _ = decoder.next()
+        _ = decoder.next()
+        decoder.rewind()
+        XCTAssertEqual(decoder.next()?.index, 0)
     }
 }
 
@@ -436,5 +462,76 @@ final class MediaScannerTests: XCTestCase {
         XCTAssertEqual(a.map(\.name), b.map(\.name))
         XCTAssertNotEqual(a.map(\.name), c.map(\.name))
         XCTAssertEqual(Set(a.map(\.name)), Set(items.map(\.name)))
+    }
+}
+
+final class WebPAnimationTests: XCTestCase {
+
+    private func fixture(_ name: String) throws -> URL {
+        let base = try XCTUnwrap(Bundle.module.resourceURL).appendingPathComponent("Fixtures")
+        let url = base.appendingPathComponent(name)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw XCTSkip("Testdatei \(name) nicht gefunden")
+        }
+        return url
+    }
+
+    func testWebPDecoderReadsAnimation() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        XCTAssertEqual(decoder.frameCount, 6)
+        XCTAssertEqual(decoder.width, 400)
+        XCTAssertEqual(decoder.height, 300)
+        XCTAssertEqual(decoder.duration, 1.2, accuracy: 0.05)
+    }
+
+    func testWebPDecoderYieldsDistinctFrames() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let first = try XCTUnwrap(decoder.next()).image
+        let second = try XCTUnwrap(decoder.next()).image
+        XCTAssertFalse(first === second)
+        XCTAssertEqual(first.width, 400)
+    }
+
+    func testWebPDecoderReportsFrameDelay() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let frame = try XCTUnwrap(decoder.next())
+        XCTAssertEqual(frame.delay, 0.2, accuracy: 0.02)
+    }
+
+    func testWebPDecoderLoops() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        // Sieben Abrufe bei sechs Frames: nach dem Umlauf muss weiter dekodiert werden.
+        var images: [CGImage] = []
+        for _ in 0..<7 {
+            images.append(try XCTUnwrap(decoder.next()).image)
+        }
+        XCTAssertEqual(images.count, 7)
+        XCTAssertEqual(images[6].width, images[0].width)
+    }
+
+    func testGIFIsRejectedByWebPDecoder() throws {
+        // Ein GIF ist kein WebP - der Decoder muss ablehnen, damit ImageIO übernimmt.
+        let url = try fixture("animated.gif")
+        XCTAssertNil(WebPAnimationDecoder(url: url))
+    }
+
+    func testFacadePicksLibWebPForWebPAndImageIOForGIF() throws {
+        let webp = try XCTUnwrap(AnimationDecoder(url: fixture("animated.webp"), maxPixelSize: 800))
+        XCTAssertTrue(webp.usesLibWebP, "Animierte WebP müssen über libwebp laufen")
+
+        let gif = try XCTUnwrap(AnimationDecoder(url: fixture("animated.gif"), maxPixelSize: 800))
+        XCTAssertFalse(gif.usesLibWebP)
+        XCTAssertEqual(gif.frameCount, 6)
+    }
+
+    func testWebPDecodingIsFasterThanPlayback() throws {
+        let decoder = try XCTUnwrap(WebPAnimationDecoder(url: fixture("animated.webp")))
+        let start = Date()
+        for _ in 0..<6 { _ = decoder.next() }
+        let perFrame = -start.timeIntervalSinceNow / 6
+
+        // Muss deutlich unter typischen Frame-Delays liegen. Mit ImageIO lagen
+        // vergleichbare Dateien bei 280 ms je Frame.
+        XCTAssertLessThan(perFrame, 0.016, "Dekodieren muss schneller sein als die Wiedergabe")
     }
 }

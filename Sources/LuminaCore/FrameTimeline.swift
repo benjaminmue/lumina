@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 
 /// Zeitachse einer Bildanimation: welcher Frame ist zu welchem Zeitpunkt sichtbar.
@@ -50,29 +49,5 @@ public struct FrameTimeline: Equatable, Sendable {
             }
         }
         return low
-    }
-}
-
-/// Ein mehrteiliges Bild (animiertes WebP, GIF oder APNG) mit dekodierten Frames.
-///
-/// `@unchecked Sendable`, weil CGImage nach dem Dekodieren unveränderlich ist und
-/// nur gelesen wird - der Compiler kann das für CoreFoundation-Typen nicht sehen.
-public struct AnimatedImage: @unchecked Sendable {
-    public let frames: [CGImage]
-    public let timeline: FrameTimeline
-
-    public init(frames: [CGImage], delays: [Double]) {
-        self.frames = frames
-        self.timeline = FrameTimeline(delays: delays)
-    }
-
-    public var frameCount: Int { frames.count }
-    public var totalDuration: Double { timeline.totalDuration }
-    public var first: CGImage? { frames.first }
-
-    public func frame(at time: Double) -> CGImage? {
-        guard !frames.isEmpty else { return nil }
-        let index = timeline.index(at: time)
-        return frames[min(index, frames.count - 1)]
     }
 }

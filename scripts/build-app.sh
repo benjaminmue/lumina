@@ -40,9 +40,36 @@ fi
 
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# libwebp mitliefern, damit die App unabhängig von Homebrew startet.
+echo "==> Bette libwebp ein"
+FRAMEWORKS="$APP/Contents/Frameworks"
+mkdir -p "$FRAMEWORKS"
+
+WEBP_LIB="$(brew --prefix webp 2>/dev/null)/lib"
+if [[ -d "$WEBP_LIB" ]]; then
+    # libwebpdemux referenziert libwebp und libsharpyuv bereits über @rpath,
+    # es genügt also, alle drei neben das Programm zu legen.
+    for name in libwebpdemux.2.dylib libwebp.7.dylib libsharpyuv.0.dylib; do
+        if [[ -f "$WEBP_LIB/$name" ]]; then
+            cp "$WEBP_LIB/$name" "$FRAMEWORKS/$name"
+            chmod u+w "$FRAMEWORKS/$name"
+            install_name_tool -id "@rpath/$name" "$FRAMEWORKS/$name"
+            codesign --force --sign - "$FRAMEWORKS/$name"
+        fi
+    done
+
+    # Absolute Homebrew-Pfade im Programm auf das Bundle umbiegen.
+    otool -L "$APP/Contents/MacOS/Lumina" | awk 'NR>1 {print $1}' | { grep "^/opt/homebrew" || true; } | while read -r dep; do
+        install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$APP/Contents/MacOS/Lumina"
+    done
+    install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Lumina" 2>/dev/null || true
+else
+    echo "Warnung: libwebp nicht gefunden - animierte WebP laufen dann über den langsamen Systemdecoder"
+fi
+
 echo "==> Signiere ad-hoc"
 codesign --force --sign - --timestamp=none "$APP"
-codesign --verify --deep --strict "$APP"
+codesign --verify --strict "$APP"
 
 echo "==> Prüfe Architektur"
 lipo -archs "$APP/Contents/MacOS/Lumina"

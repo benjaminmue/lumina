@@ -8,22 +8,26 @@ import SwiftUI
 /// `id` zählt hoch statt die URL zu spiegeln, damit SwiftUI auch dann einen Wechsel
 /// animiert, wenn dasselbe Bild zweimal hintereinander erscheint (Liste mit einem Bild).
 /// Bildinhalt eines Slides: Standbild oder Animation (WebP, GIF, APNG).
+///
+/// Animationen halten keine Frames, sondern nur das erste Bild und die Quelle -
+/// abgespielt wird im Stream. Ein Cinemagraph mit 400 Frames erscheint dadurch
+/// genauso schnell wie ein JPEG.
 enum SlideContent {
     case still(CGImage)
-    case animated(AnimatedImage)
+    case animated(poster: CGImage, url: URL, info: AnimationInfo)
 
-    /// Erstes Bild - für Übergänge und als Rückfallebene.
+    /// Standbild für Übergänge, Unschärfe-Hintergrund und als Rückfallebene.
     var representative: CGImage? {
         switch self {
         case .still(let image): return image
-        case .animated(let animation): return animation.first
+        case .animated(let poster, _, _): return poster
         }
     }
 
     var animationDuration: Double {
         switch self {
         case .still: return 0
-        case .animated(let animation): return animation.totalDuration
+        case .animated(_, _, let info): return info.totalDuration
         }
     }
 }
@@ -225,14 +229,17 @@ final class SlideshowEngine: ObservableObject {
         await loader.prefetch(sequence.upcomingURLs(count: 2), maxPixelSize: targetPixelSize)
     }
 
-    /// Lädt eine Datei als Animation, falls sie mehrere Frames hat, sonst als Standbild.
+    /// Lädt das Standbild und - bei animierten Dateien - die Kopfdaten der Animation.
+    ///
+    /// Beides ist billig: das erste Bild wird direkt in Zielgrösse dekodiert, die
+    /// Kopfdaten kosten keine Pixel-Dekodierung. Die Frames holt der Player selbst.
     private func load(item: MediaItem) async -> SlideContent? {
-        if ImageLoader.isAnimated(item.url),
-           let animation = await loader.animation(for: item.url, maxPixelSize: targetPixelSize) {
-            return .animated(animation)
+        guard let poster = await loader.image(for: item.url, maxPixelSize: targetPixelSize) else { return nil }
+
+        if let info = await loader.animationInfo(for: item.url), info.isAnimated {
+            return .animated(poster: poster, url: item.url, info: info)
         }
-        guard let image = await loader.image(for: item.url, maxPixelSize: targetPixelSize) else { return nil }
-        return .still(image)
+        return .still(poster)
     }
 
     /// Standzeit des aktuellen Slides.
