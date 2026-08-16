@@ -1,3 +1,6 @@
+import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 @testable import LuminaCore
 
@@ -24,6 +27,21 @@ final class SlideshowConfigTests: XCTestCase {
         XCTAssertLessThanOrEqual(clean.transitionDuration, clean.slideDuration * 0.8)
     }
 
+    func testDecodingToleratesMissingFields() throws {
+        // Einstellungsdatei einer älteren Version: neue Felder fehlen.
+        let json = """
+        {"slideDuration": 7, "transition": "wipe", "loop": false}
+        """.data(using: .utf8)!
+
+        let config = try JSONDecoder().decode(SlideshowConfig.self, from: json)
+        XCTAssertEqual(config.slideDuration, 7)
+        XCTAssertEqual(config.transition, .wipe)
+        XCTAssertFalse(config.loop)
+        // Nicht gespeicherte Felder müssen ihren Standardwert behalten.
+        XCTAssertEqual(config.scaleMode, SlideshowConfig().scaleMode)
+        XCTAssertEqual(config.playAnimationsFully, SlideshowConfig().playAnimationsFully)
+    }
+
     func testConfigRoundtripsThroughJSON() throws {
         var config = SlideshowConfig()
         config.transition = .wipe
@@ -34,6 +52,69 @@ final class SlideshowConfigTests: XCTestCase {
         let data = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(SlideshowConfig.self, from: data)
         XCTAssertEqual(config, decoded)
+    }
+}
+
+final class FrameTimelineTests: XCTestCase {
+
+    func testTotalDurationIsSumOfDelays() {
+        let timeline = FrameTimeline(delays: [0.1, 0.2, 0.3])
+        XCTAssertEqual(timeline.totalDuration, 0.6, accuracy: 0.0001)
+        XCTAssertEqual(timeline.frameCount, 3)
+    }
+
+    func testIndexPicksCorrectFrame() {
+        let timeline = FrameTimeline(delays: [0.1, 0.2, 0.3])
+        XCTAssertEqual(timeline.index(at: 0.0), 0)
+        XCTAssertEqual(timeline.index(at: 0.05), 0)
+        XCTAssertEqual(timeline.index(at: 0.15), 1)
+        XCTAssertEqual(timeline.index(at: 0.25), 1)
+        XCTAssertEqual(timeline.index(at: 0.35), 2)
+        XCTAssertEqual(timeline.index(at: 0.59), 2)
+    }
+
+    func testTimelineWrapsAround() {
+        let timeline = FrameTimeline(delays: [0.1, 0.2, 0.3])
+        // Zweiter Durchlauf muss dieselben Frames liefern wie der erste.
+        XCTAssertEqual(timeline.index(at: 0.65), timeline.index(at: 0.05))
+        XCTAssertEqual(timeline.index(at: 1.25), timeline.index(at: 0.05))
+        XCTAssertEqual(timeline.index(at: 0.95), timeline.index(at: 0.35))
+    }
+
+    func testNegativeTimeStaysInRange() {
+        let timeline = FrameTimeline(delays: [0.1, 0.2, 0.3])
+        let index = timeline.index(at: -0.05)
+        XCTAssertTrue((0..<3).contains(index))
+    }
+
+    func testTinyDelaysAreNormalised() {
+        // Alte GIFs schreiben oft 0 oder 0.01 - Viewer behandeln das als 0.1 s.
+        let timeline = FrameTimeline(delays: [0, 0.005, 0.01])
+        XCTAssertEqual(timeline.delays, [0.1, 0.1, 0.1])
+        XCTAssertEqual(timeline.totalDuration, 0.3, accuracy: 0.0001)
+    }
+
+    func testSingleFrameAlwaysReturnsZero() {
+        let timeline = FrameTimeline(delays: [0.2])
+        XCTAssertEqual(timeline.index(at: 0), 0)
+        XCTAssertEqual(timeline.index(at: 99), 0)
+    }
+
+    func testEmptyTimelineIsSafe() {
+        let timeline = FrameTimeline(delays: [])
+        XCTAssertEqual(timeline.frameCount, 0)
+        XCTAssertEqual(timeline.totalDuration, 0)
+        XCTAssertEqual(timeline.index(at: 1.5), 0)
+    }
+
+    func testIndexIsStableAcrossManyFrames() {
+        // Cinemagraph-Grössenordnung. Geprüft wird jeweils die Frame-Mitte: genau auf
+        // einer Frame-Grenze ist wegen der Gleitkomma-Summe beides vertretbar.
+        let timeline = FrameTimeline(delays: Array(repeating: 0.04, count: 250))
+        XCTAssertEqual(timeline.index(at: 0.02), 0)
+        XCTAssertEqual(timeline.index(at: 4.02), 100)
+        XCTAssertEqual(timeline.index(at: 9.98), 249)
+        XCTAssertEqual(timeline.totalDuration, 10.0, accuracy: 0.001)
     }
 }
 
@@ -182,6 +263,99 @@ final class SlideshowSequenceTests: XCTestCase {
     func testUpcomingURLsNeverRepeatCurrentInSingleItemList() {
         let sequence = SlideshowSequence(items: items(1))
         XCTAssertTrue(sequence.upcomingURLs(count: 3).isEmpty)
+    }
+}
+
+final class AnimationDecodingTests: XCTestCase {
+
+    /// Baut ein echtes animiertes GIF, damit der Dekodier-Pfad mit einer Datei
+    /// geprüft wird und nicht nur mit erdachten Werten.
+    private func makeAnimatedGIF(frames: Int, delay: Double, size: Int = 400) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lumina-anim-\(UUID().uuidString).gif")
+
+        guard let destination = CGImageDestinationCreateWithURL(
+            url as CFURL, UTType.gif.identifier as CFString, frames, nil
+        ) else {
+            throw XCTSkip("GIF-Encoder nicht verfügbar")
+        }
+
+        CGImageDestinationSetProperties(destination, [
+            kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0],
+        ] as CFDictionary)
+
+        for index in 0..<frames {
+            let context = CGContext(
+                data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )!
+            let shade = CGFloat(index) / CGFloat(max(frames - 1, 1))
+            context.setFillColor(CGColor(red: shade, green: 0.2, blue: 1 - shade, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+
+            CGImageDestinationAddImage(destination, context.makeImage()!, [
+                kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: delay],
+            ] as CFDictionary)
+        }
+
+        guard CGImageDestinationFinalize(destination) else {
+            throw XCTSkip("GIF konnte nicht geschrieben werden")
+        }
+        return url
+    }
+
+    func testAnimatedFileIsDetected() throws {
+        let url = try makeAnimatedGIF(frames: 5, delay: 0.2)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertEqual(ImageLoader.frameCount(of: url), 5)
+        XCTAssertTrue(ImageLoader.isAnimated(url))
+    }
+
+    func testAllFramesAndDelaysAreDecoded() throws {
+        let url = try makeAnimatedGIF(frames: 5, delay: 0.2)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let result = ImageLoader.decodeAnimation(url: url, maxPixelSize: 800, budgetBytes: 256 * 1024 * 1024)
+        let animation = try XCTUnwrap(result?.0)
+
+        XCTAssertEqual(animation.frameCount, 5)
+        XCTAssertEqual(animation.totalDuration, 1.0, accuracy: 0.05)
+        // Frames müssen sich unterscheiden - sonst wäre wieder nur Index 0 geladen.
+        XCTAssertFalse(animation.frame(at: 0.0) === animation.frame(at: 0.5))
+    }
+
+    func testStillImageYieldsNoAnimation() throws {
+        let url = try makeAnimatedGIF(frames: 1, delay: 0.2)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertFalse(ImageLoader.isAnimated(url))
+        XCTAssertNil(ImageLoader.decodeAnimation(url: url, maxPixelSize: 800, budgetBytes: 256 * 1024 * 1024))
+    }
+
+    func testDecodeNeverExceedsMemoryBudget() throws {
+        let url = try makeAnimatedGIF(frames: 20, delay: 0.05, size: 1200)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let budget = 24 * 1024 * 1024
+        let result = ImageLoader.decodeAnimation(url: url, maxPixelSize: 2560, budgetBytes: budget)
+
+        if let (animation, usedSize) = result {
+            let bytes = animation.frames.reduce(0) { $0 + $1.bytesPerRow * $1.height }
+            XCTAssertLessThanOrEqual(bytes, budget, "Dekodierte Frames sprengen das Budget")
+            XCTAssertLessThanOrEqual(usedSize, 1200, "Nie über die native Auflösung hinaus dekodieren")
+        }
+        // Kein Ergebnis ist zulässig: dann fällt der Player auf das Standbild zurück.
+    }
+
+    func testDecodeDoesNotUpscaleBeyondNativeSize() throws {
+        let url = try makeAnimatedGIF(frames: 3, delay: 0.1, size: 200)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let result = ImageLoader.decodeAnimation(url: url, maxPixelSize: 4000, budgetBytes: 256 * 1024 * 1024)
+        let frame = try XCTUnwrap(result?.0.first)
+        XCTAssertLessThanOrEqual(frame.width, 200)
     }
 }
 

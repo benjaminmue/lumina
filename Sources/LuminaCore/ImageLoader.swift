@@ -18,12 +18,29 @@ public actor ImageLoader {
         }
     }
 
-    private let cache = NSCache<NSString, CachedImage>()
-    private var inFlight: [String: Task<CGImage?, Never>] = [:]
+    /// Wrapper für den Animations-Cache.
+    private final class CachedAnimation: NSObject {
+        let animation: AnimatedImage
+        let pixelSize: Int
+        init(animation: AnimatedImage, pixelSize: Int) {
+            self.animation = animation
+            self.pixelSize = pixelSize
+        }
+    }
 
-    /// - Parameter memoryLimitMB: Obergrenze für den Bild-Cache.
-    public init(memoryLimitMB: Int = 512) {
+    private let cache = NSCache<NSString, CachedImage>()
+    private let animationCache = NSCache<NSString, CachedAnimation>()
+    private var inFlight: [String: Task<CGImage?, Never>] = [:]
+    private let animationBudgetBytes: Int
+
+    /// - Parameters:
+    ///   - memoryLimitMB: Obergrenze für den Standbild-Cache.
+    ///   - animationBudgetMB: Obergrenze für dekodierte Animationen. Ein Cinemagraph mit
+    ///     200 Frames in Full HD wären roh über 1.6 GB - das Budget erzwingt Downsampling.
+    public init(memoryLimitMB: Int = 512, animationBudgetMB: Int = 384) {
         cache.totalCostLimit = memoryLimitMB * 1024 * 1024
+        animationCache.totalCostLimit = animationBudgetMB * 1024 * 1024
+        animationBudgetBytes = animationBudgetMB * 1024 * 1024
     }
 
     /// Liefert das Bild in mindestens `maxPixelSize` Kantenlänge.
@@ -77,6 +94,128 @@ public actor ImageLoader {
 
     public func clearCache() {
         cache.removeAllObjects()
+        animationCache.removeAllObjects()
+    }
+
+    // MARK: - Animationen
+
+    /// Lädt alle Frames eines animierten Bildes (WebP, GIF, APNG).
+    ///
+    /// Gibt `nil` zurück, wenn die Datei nur einen Frame hat - dann ist der normale
+    /// Standbild-Weg zuständig.
+    public func animation(for url: URL, maxPixelSize: Int) async -> AnimatedImage? {
+        let key = url.path as NSString
+        if let cached = animationCache.object(forKey: key), cached.pixelSize >= maxPixelSize {
+            return cached.animation
+        }
+
+        let budget = animationBudgetBytes
+        let result = await Task.detached(priority: .userInitiated) { () -> (AnimatedImage, Int)? in
+            Self.decodeAnimation(url: url, maxPixelSize: maxPixelSize, budgetBytes: budget)
+        }.value
+
+        guard let (animation, usedPixelSize) = result else { return nil }
+
+        let cost = animation.frames.reduce(0) { $0 + $1.bytesPerRow * $1.height }
+        animationCache.setObject(
+            CachedAnimation(animation: animation, pixelSize: usedPixelSize),
+            forKey: key,
+            cost: cost
+        )
+        return animation
+    }
+
+    /// Zahl der Einzelbilder in der Datei. Liest nur den Container-Header.
+    public nonisolated static func frameCount(of url: URL) -> Int {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return 0 }
+        return CGImageSourceGetCount(source)
+    }
+
+    public nonisolated static func isAnimated(_ url: URL) -> Bool {
+        frameCount(of: url) > 1
+    }
+
+    /// Dekodiert alle Frames und passt die Auflösung ans Speicherbudget an.
+    ///
+    /// - Returns: Animation und die tatsächlich verwendete Kantenlänge, oder `nil`
+    ///   bei Einzelbildern und Lesefehlern.
+    nonisolated static func decodeAnimation(
+        url: URL,
+        maxPixelSize: Int,
+        budgetBytes: Int
+    ) -> (AnimatedImage, Int)? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let count = CGImageSourceGetCount(source)
+        guard count > 1 else { return nil }
+
+        // Native Grösse als Obergrenze: Hochskalieren beim Dekodieren bringt nichts
+        // ausser Speicherverbrauch.
+        var targetSize = maxPixelSize
+        if let native = pixelSize(of: url) {
+            targetSize = min(targetSize, Int(max(native.width, native.height)))
+        }
+
+        // Auflösung halbieren, bis alle Frames ins Budget passen. Die Untergrenze von
+        // 320 px gilt nur fürs Herunterskalieren - ein nativ kleines Bild (Sticker,
+        // kleines GIF) darf seine eigene Grösse behalten.
+        let lowerBound = min(320, targetSize)
+        while targetSize > lowerBound {
+            if targetSize * targetSize * 4 * count <= budgetBytes { break }
+            targetSize = max(targetSize / 2, lowerBound)
+        }
+        // Passt es selbst dann nicht, übernimmt der Standbild-Weg.
+        guard targetSize * targetSize * 4 * count <= budgetBytes else { return nil }
+
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: targetSize,
+        ]
+
+        var frames: [CGImage] = []
+        var delays: [Double] = []
+        frames.reserveCapacity(count)
+        delays.reserveCapacity(count)
+
+        for index in 0..<count {
+            guard let frame = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary) else { continue }
+            frames.append(frame)
+            delays.append(delay(of: source, at: index))
+        }
+
+        guard frames.count > 1 else { return nil }
+        return (AnimatedImage(frames: frames, delays: delays), targetSize)
+    }
+
+    /// Liest die Anzeigedauer eines Frames. Die Formate legen sie jeweils in ihrem
+    /// eigenen Property-Dictionary ab.
+    private nonisolated static func delay(of source: CGImageSource, at index: Int) -> Double {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any] else {
+            return FrameTimeline.defaultDelay
+        }
+
+        let containers: [[CFString: Any]?] = [
+            props[kCGImagePropertyWebPDictionary] as? [CFString: Any],
+            props[kCGImagePropertyGIFDictionary] as? [CFString: Any],
+            props[kCGImagePropertyPNGDictionary] as? [CFString: Any],
+            props[kCGImagePropertyHEICSDictionary] as? [CFString: Any],
+        ]
+        let keys: [CFString] = [
+            kCGImagePropertyWebPUnclampedDelayTime, kCGImagePropertyWebPDelayTime,
+            kCGImagePropertyGIFUnclampedDelayTime, kCGImagePropertyGIFDelayTime,
+            kCGImagePropertyAPNGUnclampedDelayTime, kCGImagePropertyAPNGDelayTime,
+            kCGImagePropertyHEICSUnclampedDelayTime, kCGImagePropertyHEICSDelayTime,
+        ]
+
+        for container in containers.compactMap({ $0 }) {
+            for key in keys {
+                if let value = container[key] as? Double, value > 0 {
+                    return value
+                }
+            }
+        }
+        return FrameTimeline.defaultDelay
     }
 
     /// Dekodiert eine Bilddatei direkt in Zielgrösse und richtet sie nach EXIF-Orientierung aus.

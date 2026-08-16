@@ -116,6 +116,8 @@ struct SettingsInspector: View {
             Toggle("Im Vollbild starten", isOn: $app.config.startFullscreen)
             Toggle("Dateiname einblenden", isOn: $app.config.showFilename)
             Toggle("Fortschrittsbalken", isOn: $app.config.showProgress)
+            Toggle("Animationen ganz abspielen", isOn: $app.config.playAnimationsFully)
+                .help("Animierte WebP, GIF und APNG laufen mindestens einmal komplett durch, auch wenn die Anzeigedauer kürzer ist")
             Toggle("Unterordner einbeziehen", isOn: $app.config.recursiveImport)
         }
     }

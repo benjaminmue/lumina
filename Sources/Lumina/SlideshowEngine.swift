@@ -7,17 +7,38 @@ import SwiftUI
 ///
 /// `id` zählt hoch statt die URL zu spiegeln, damit SwiftUI auch dann einen Wechsel
 /// animiert, wenn dasselbe Bild zweimal hintereinander erscheint (Liste mit einem Bild).
+/// Bildinhalt eines Slides: Standbild oder Animation (WebP, GIF, APNG).
+enum SlideContent {
+    case still(CGImage)
+    case animated(AnimatedImage)
+
+    /// Erstes Bild - für Übergänge und als Rückfallebene.
+    var representative: CGImage? {
+        switch self {
+        case .still(let image): return image
+        case .animated(let animation): return animation.first
+        }
+    }
+
+    var animationDuration: Double {
+        switch self {
+        case .still: return 0
+        case .animated(let animation): return animation.totalDuration
+        }
+    }
+}
+
 struct Slide: Identifiable, Equatable {
     let id: Int
     let item: MediaItem
-    let image: CGImage
+    let content: SlideContent
     let transition: TransitionStyle
     let direction: SlideshowSequence.Direction
 
     /// Der Vergleich zieht das Bild mit heran, damit ein Nachladen in höherer Auflösung
     /// die View aktualisiert. Über `id` allein würde SwiftUI das Update verwerfen.
     static func == (lhs: Slide, rhs: Slide) -> Bool {
-        lhs.id == rhs.id && lhs.image === rhs.image
+        lhs.id == rhs.id && lhs.content.representative === rhs.content.representative
     }
 }
 
@@ -33,6 +54,9 @@ final class SlideshowEngine: ObservableObject {
     @Published private(set) var progress: Double = 0
     /// Wird gesetzt, wenn ohne Loop das letzte Bild gezeigt wurde.
     @Published private(set) var didFinish = false
+    /// Standzeit des laufenden Slides. Weicht von der Einstellung ab, wenn eine
+    /// Animation vollständig abgespielt wird.
+    @Published private(set) var currentSlideDuration: Double = 5
 
     /// Zielauflösung fürs Dekodieren. Wird vom Player anhand der Fenstergrösse gesetzt.
     private(set) var targetPixelSize: Int = 2560
@@ -54,6 +78,7 @@ final class SlideshowEngine: ObservableObject {
         self.sequence = SlideshowSequence(items: items, startIndex: startIndex)
         self.config = config
         self.loader = loader
+        self.currentSlideDuration = config.slideDuration
     }
 
     var currentIndex: Int { sequence.index }
@@ -72,7 +97,10 @@ final class SlideshowEngine: ObservableObject {
         guard size > targetPixelSize else { return }
         targetPixelSize = size
 
+        // Nur Standbilder werden nachgeschärft: bei einer Animation müssten alle Frames
+        // neu dekodiert werden, was mitten in der Wiedergabe stocken würde.
         guard let current = slide,
+              case .still = current.content,
               let sharper = await loader.image(for: current.item.url, maxPixelSize: size)
         else { return }
 
@@ -80,7 +108,7 @@ final class SlideshowEngine: ObservableObject {
         slide = Slide(
             id: current.id,
             item: current.item,
-            image: sharper,
+            content: .still(sharper),
             transition: current.transition,
             direction: current.direction
         )
@@ -132,9 +160,9 @@ final class SlideshowEngine: ObservableObject {
             guard !isPaused, !didFinish else { continue }
 
             elapsed += delta
-            progress = min(elapsed / max(config.slideDuration, 0.1), 1)
+            progress = min(elapsed / max(currentSlideDuration, 0.1), 1)
 
-            if elapsed >= config.slideDuration {
+            if elapsed >= currentSlideDuration {
                 elapsed = 0
                 guard sequence.advance(loop: config.loop) else {
                     didFinish = true
@@ -164,10 +192,10 @@ final class SlideshowEngine: ObservableObject {
         guard let item = sequence.current else { return }
 
         isLoading = true
-        let image = await loader.image(for: item.url, maxPixelSize: targetPixelSize)
+        let content = await load(item: item)
         isLoading = false
 
-        guard let image else {
+        guard let content else {
             // Defekte oder gelöschte Datei: überspringen, aber Endlosschleife vermeiden.
             if sequence.count > 1, sequence.advance(loop: config.loop) {
                 await present(transitionStyle: transitionStyle)
@@ -175,12 +203,13 @@ final class SlideshowEngine: ObservableObject {
             return
         }
 
+        currentSlideDuration = slideDuration(for: content)
         slideCounter += 1
         let resolved = transitionStyle.resolved(seed: item.seed &+ UInt64(slideCounter))
         let newSlide = Slide(
             id: slideCounter,
             item: item,
-            image: image,
+            content: content,
             transition: resolved,
             direction: sequence.lastDirection
         )
@@ -194,5 +223,28 @@ final class SlideshowEngine: ObservableObject {
         }
 
         await loader.prefetch(sequence.upcomingURLs(count: 2), maxPixelSize: targetPixelSize)
+    }
+
+    /// Lädt eine Datei als Animation, falls sie mehrere Frames hat, sonst als Standbild.
+    private func load(item: MediaItem) async -> SlideContent? {
+        if ImageLoader.isAnimated(item.url),
+           let animation = await loader.animation(for: item.url, maxPixelSize: targetPixelSize) {
+            return .animated(animation)
+        }
+        guard let image = await loader.image(for: item.url, maxPixelSize: targetPixelSize) else { return nil }
+        return .still(image)
+    }
+
+    /// Standzeit des aktuellen Slides.
+    ///
+    /// Animationen dürfen auf Wunsch zu Ende laufen, damit ein Cinemagraph nicht
+    /// mitten in der Bewegung abgeschnitten wird.
+    private func slideDuration(for content: SlideContent) -> Double {
+        guard config.playAnimationsFully, content.animationDuration > 0 else {
+            return config.slideDuration
+        }
+        // Volle Durchläufe zählen, damit die Animation an ihrem Anfang endet.
+        let loops = max(1, (config.slideDuration / content.animationDuration).rounded())
+        return min(content.animationDuration * loops, SlideshowConfig.durationRange.upperBound)
     }
 }

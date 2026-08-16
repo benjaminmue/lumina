@@ -12,6 +12,7 @@ struct ThumbnailView: View {
     let onPlayFromHere: () -> Void
 
     @State private var image: CGImage?
+    @State private var frameCount = 1
 
     var body: some View {
         Button(action: onToggle) {
@@ -32,8 +33,12 @@ struct ThumbnailView: View {
         .help(item.url.path)
         .task(id: item.url) {
             image = await loader.image(for: item.url, maxPixelSize: 320)
+            // Liest nur den Container-Header, kostet also kaum etwas.
+            frameCount = ImageLoader.frameCount(of: item.url)
         }
     }
+
+    private var isAnimated: Bool { frameCount > 1 }
 
     private var tile: some View {
         VStack(spacing: 6) {
@@ -66,6 +71,19 @@ struct ThumbnailView: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(.white, isEnabled ? Color.accentColor : Color.black.opacity(0.35))
                     .padding(6)
+            }
+            .overlay(alignment: .bottomLeading) {
+                if isAnimated {
+                    Label("\(frameCount)", systemImage: "play.circle.fill")
+                        .font(.caption2)
+                        .labelStyle(.titleAndIcon)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .help("Animiertes Bild mit \(frameCount) Einzelbildern")
+                }
             }
             .opacity(isEnabled ? 1 : 0.45)
 

@@ -140,6 +140,9 @@ public struct SlideshowConfig: Codable, Equatable, Sendable {
     public var showFilename: Bool
     /// Fortschrittsbalken einblenden.
     public var showProgress: Bool
+    /// Animierte Bilder (WebP, GIF, APNG) mindestens einmal vollständig abspielen,
+    /// auch wenn die Anzeigedauer kürzer ist.
+    public var playAnimationsFully: Bool
     /// Hintergrundhelligkeit hinter dem Bild (0 = schwarz, 1 = weiss).
     public var backgroundBrightness: Double
 
@@ -159,6 +162,7 @@ public struct SlideshowConfig: Codable, Equatable, Sendable {
         startFullscreen: Bool = true,
         showFilename: Bool = false,
         showProgress: Bool = true,
+        playAnimationsFully: Bool = true,
         backgroundBrightness: Double = 0
     ) {
         self.slideDuration = slideDuration
@@ -173,7 +177,33 @@ public struct SlideshowConfig: Codable, Equatable, Sendable {
         self.startFullscreen = startFullscreen
         self.showFilename = showFilename
         self.showProgress = showProgress
+        self.playAnimationsFully = playAnimationsFully
         self.backgroundBrightness = backgroundBrightness
+    }
+
+    /// Fehlende Felder fallen auf ihren Standardwert zurück.
+    ///
+    /// Ohne das würde eine gespeicherte Einstellungsdatei aus einer älteren Version
+    /// beim Dekodieren komplett scheitern und alle Einstellungen zurücksetzen,
+    /// sobald ein neues Feld dazukommt.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let fallback = SlideshowConfig()
+
+        slideDuration = try container.decodeIfPresent(Double.self, forKey: .slideDuration) ?? fallback.slideDuration
+        transitionDuration = try container.decodeIfPresent(Double.self, forKey: .transitionDuration) ?? fallback.transitionDuration
+        transition = try container.decodeIfPresent(TransitionStyle.self, forKey: .transition) ?? fallback.transition
+        scaleMode = try container.decodeIfPresent(ScaleMode.self, forKey: .scaleMode) ?? fallback.scaleMode
+        kenBurns = try container.decodeIfPresent(KenBurnsIntensity.self, forKey: .kenBurns) ?? fallback.kenBurns
+        sortOrder = try container.decodeIfPresent(SortOrder.self, forKey: .sortOrder) ?? fallback.sortOrder
+        ascending = try container.decodeIfPresent(Bool.self, forKey: .ascending) ?? fallback.ascending
+        recursiveImport = try container.decodeIfPresent(Bool.self, forKey: .recursiveImport) ?? fallback.recursiveImport
+        loop = try container.decodeIfPresent(Bool.self, forKey: .loop) ?? fallback.loop
+        startFullscreen = try container.decodeIfPresent(Bool.self, forKey: .startFullscreen) ?? fallback.startFullscreen
+        showFilename = try container.decodeIfPresent(Bool.self, forKey: .showFilename) ?? fallback.showFilename
+        showProgress = try container.decodeIfPresent(Bool.self, forKey: .showProgress) ?? fallback.showProgress
+        playAnimationsFully = try container.decodeIfPresent(Bool.self, forKey: .playAnimationsFully) ?? fallback.playAnimationsFully
+        backgroundBrightness = try container.decodeIfPresent(Double.self, forKey: .backgroundBrightness) ?? fallback.backgroundBrightness
     }
 
     /// Begrenzt alle Werte auf gültige Bereiche. Wird nach dem Laden aus UserDefaults angewendet,
