@@ -25,8 +25,9 @@ final class AppState: ObservableObject {
     /// Aktivieren. Markiert wird mit Klick, Cmd-Klick und Shift-Klick, die Aktion auf
     /// der Markierung erfolgt danach über Leertaste, Menü oder Kontextmenü.
     @Published private(set) var selection: Set<URL> = []
-    /// Suchtext über die Dateinamen.
-    @Published var searchText = ""
+    /// Zeigt auch die aus der Slideshow entfernten Bilder an, damit man sie
+    /// zurückholen kann. Normalerweise sind sie schlicht weg.
+    @Published var showsRemoved = false
 
     /// Ausgangspunkt für die Bereichsauswahl mit Shift.
     private var selectionAnchor: URL?
@@ -64,12 +65,16 @@ final class AppState: ObservableObject {
         items.filter { enabled.contains($0.url) }
     }
 
-    /// Was das Raster zeigt - gefiltert nach Suchtext.
+    /// Was das Raster zeigt: die Bilder der Slideshow.
+    ///
+    /// Entfernte Bilder erscheinen nur, wenn `showsRemoved` gesetzt ist - eine graue
+    /// Kachel, die liegen bleibt, liest sich sonst wie ein Fehler statt wie "entfernt".
     var visibleItems: [MediaItem] {
-        let query = searchText.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return items }
-        return items.filter { $0.name.localizedCaseInsensitiveContains(query) }
+        showsRemoved ? items : items.filter { enabled.contains($0.url) }
     }
+
+    /// Wie viele Bilder aus der Slideshow genommen wurden.
+    var removedCount: Int { items.count - enabled.count }
 
     var canPresent: Bool { !playableItems.isEmpty }
 
@@ -259,9 +264,22 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Nimmt die markierten Bilder aus der Slideshow. Die Dateien bleiben unangetastet.
+    func removeSelected() {
+        guard !selection.isEmpty else { return }
+        enabled.subtract(selection)
+        selection = []
+        selectionAnchor = nil
+    }
+
+    /// Holt die markierten Bilder zurück.
+    func restoreSelected() {
+        guard !selection.isEmpty else { return }
+        enabled.formUnion(selection)
+    }
+
     func enableAll() { enabled = Set(items.map(\.url)) }
     func disableAll() { enabled = [] }
-    func invertInclusion() { enabled = Set(items.map(\.url)).subtracting(enabled) }
 
     /// Behält nur die markierten Bilder in der Slideshow.
     func keepOnlySelected() {

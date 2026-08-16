@@ -61,12 +61,12 @@ struct LuminaCommands: Commands {
 
             // Kein Tastenkürzel: die Leertaste hängt am Raster selbst, als Menükürzel
             // würde sie auch im Suchfeld und im Player abgefangen.
-            Button("Markierte umschalten") { app.toggleInclusionOfSelection() }
+            Button("Markierte entfernen") { app.removeSelected() }
                 .disabled(app.selection.isEmpty)
-            Button("Alle Bilder aufnehmen") { app.enableAll() }
+            Button("Alle entfernen") { app.disableAll() }
                 .disabled(app.items.isEmpty)
-            Button("Alle Bilder entfernen") { app.disableAll() }
-                .disabled(app.items.isEmpty)
+            Button("Alle zurückholen") { app.enableAll() }
+                .disabled(app.removedCount == 0)
         }
 
         CommandGroup(after: .pasteboard) {

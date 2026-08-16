@@ -46,13 +46,6 @@ struct ThumbnailView: View {
 
     var body: some View {
         tile
-            .contentShape(RoundedRectangle(cornerRadius: corner))
-            .onTapGesture(count: 2, perform: onPlayFromHere)
-            .onTapGesture {
-                // SwiftUI reicht bei Tap-Gesten keine Modifiertasten durch.
-                let flags = NSEvent.modifierFlags
-                onSelect(flags.contains(.shift), flags.contains(.command))
-            }
             .onHover { isHovered = $0 }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(item.name)
@@ -90,6 +83,15 @@ struct ThumbnailView: View {
             // sofort, ohne dass ein Rahmen um jede Kachel nötig wäre.
             .saturation(isEnabled ? 1 : 0)
             .opacity(isEnabled ? 1 : 0.4)
+            // Die Auswahl-Geste liegt bewusst hier und nicht um die ganze Kachel:
+            // sonst verschliesst ihre Trefferfläche die Knöpfe in den Overlays.
+            .contentShape(RoundedRectangle(cornerRadius: corner))
+            .onTapGesture(count: 2, perform: onPlayFromHere)
+            .onTapGesture {
+                // SwiftUI reicht bei Tap-Gesten keine Modifiertasten durch.
+                let flags = NSEvent.modifierFlags
+                onSelect(flags.contains(.shift), flags.contains(.command))
+            }
             .overlay(alignment: .bottom) { hoverFooter }
             .overlay(alignment: .topLeading) { animationBadge }
             .overlay(alignment: .topTrailing) { inclusionToggle }
@@ -106,31 +108,41 @@ struct ThumbnailView: View {
     @ViewBuilder
     private var hoverFooter: some View {
         if isHovered {
-            HStack(spacing: 8) {
-                Text(item.name)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                Spacer(minLength: 4)
+            ZStack(alignment: .bottomTrailing) {
+                // Verlauf und Dateiname sind reine Anzeige - ohne dieses
+                // allowsHitTesting würden sie Klicks auf die Kachel abfangen.
+                HStack {
+                    Text(item.name)
+                        .font(.caption)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.white)
+                    Spacer(minLength: 28)
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.7)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .allowsHitTesting(false)
 
                 Button(action: onPlayFromHere) {
-                    Image(systemName: "play.fill").font(.caption)
+                    Image(systemName: "play.fill")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                        .padding(5)
+                        .background(.black.opacity(0.45), in: Circle())
                 }
                 .buttonStyle(.plain)
+                .padding(6)
                 .help("Slideshow hier starten")
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.top, 14)
-            .padding(.bottom, 7)
-            .background(
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.65)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
             .transition(.opacity)
         }
     }
@@ -146,31 +158,34 @@ struct ThumbnailView: View {
                 .background(.thinMaterial, in: Capsule())
                 .padding(6)
                 .help("Animiertes Bild mit \(frameCount) Einzelbildern")
+                .allowsHitTesting(false)
         }
     }
 
-    /// Das Häkchen ist der einzige Weg, ein Bild direkt aus der Show zu nehmen -
-    /// darum ist es bei nicht enthaltenen Bildern immer sichtbar.
+    /// Kreuz zum Entfernen, Plus zum Zurückholen.
+    ///
+    /// Ein Häkchen stand hier vorher und wurde als "deaktiviert" gelesen statt als
+    /// "aus der Slideshow genommen" - das Symbol muss die Aktion zeigen, nicht den Zustand.
     @ViewBuilder
     private var inclusionToggle: some View {
         if !isEnabled || isHovered || isSelected {
             Button(action: onToggleInclusion) {
-                Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
+                Image(systemName: isEnabled ? "xmark.circle.fill" : "plus.circle.fill")
                     .font(.title3)
                     .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, isEnabled ? Color.accentColor : Color.black.opacity(0.4))
-                    .shadow(color: .black.opacity(0.25), radius: 2)
+                    .foregroundStyle(.white, isEnabled ? .black.opacity(0.55) : Color.accentColor)
+                    .shadow(color: .black.opacity(0.3), radius: 2)
             }
             .buttonStyle(.plain)
             .padding(6)
-            .help(isEnabled ? "Aus der Slideshow nehmen" : "Zur Slideshow hinzufügen")
+            .help(isEnabled ? "Aus der Slideshow entfernen" : "Wieder aufnehmen")
             .transition(.opacity)
         }
     }
 
     @ViewBuilder
     private var contextMenu: some View {
-        Button(isEnabled ? "Aus Slideshow nehmen" : "Zur Slideshow hinzufügen", action: onToggleInclusion)
+        Button(isEnabled ? "Entfernen" : "Wieder aufnehmen", action: onToggleInclusion)
         Button("Slideshow hier starten", action: onPlayFromHere)
         Divider()
         Button("Im Finder zeigen") {

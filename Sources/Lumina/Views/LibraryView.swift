@@ -23,7 +23,6 @@ struct LibraryView: View {
         }
         .frame(minWidth: 900, minHeight: 620)
         .toolbar { toolbarContent }
-        .searchable(text: $app.searchText, placement: .toolbar, prompt: "Bilder filtern")
         .inspector(isPresented: $showInspector) {
             SettingsInspector()
                 .inspectorColumnWidth(min: 300, ideal: 320, max: 360)
@@ -120,6 +119,14 @@ struct LibraryView: View {
                 @unknown default: break
                 }
             }
+            .onKeyPress(.delete) {
+                app.removeSelected()
+                return .handled
+            }
+            .onKeyPress(.deleteForward) {
+                app.removeSelected()
+                return .handled
+            }
             .onKeyPress(.space) {
                 app.toggleInclusionOfSelection()
                 return .handled
@@ -146,16 +153,25 @@ struct LibraryView: View {
                 ProgressView().controlSize(.small)
                 Text("Lese Bilder …")
             } else {
-                Text("\(app.playableItems.count) von \(app.items.count) Bildern in der Slideshow")
+                Text("\(app.playableItems.count) Bilder in der Slideshow")
+
                 if !app.selection.isEmpty {
                     Text("·").foregroundStyle(.tertiary)
-                    Text("\(app.selection.count) markiert")
-                        .foregroundStyle(.secondary)
+                    Text("\(app.selection.count) markiert").foregroundStyle(.secondary)
                 }
-                if !app.searchText.isEmpty {
+
+                // Entfernte Bilder sind unsichtbar - der Rückweg muss darum sichtbar sein.
+                if app.removedCount > 0 {
                     Text("·").foregroundStyle(.tertiary)
-                    Text("\(app.visibleItems.count) gefiltert")
-                        .foregroundStyle(.secondary)
+                    Text("\(app.removedCount) entfernt").foregroundStyle(.secondary)
+                    Button(app.showsRemoved ? "Ausblenden" : "Anzeigen") {
+                        app.showsRemoved.toggle()
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption)
+                    Button("Zurückholen") { app.enableAll() }
+                        .buttonStyle(.link)
+                        .font(.caption)
                 }
             }
 
@@ -211,14 +227,16 @@ struct LibraryView: View {
                             .disabled(app.selection.isEmpty)
                     }
                     Section("Slideshow") {
-                        Button("Markierte umschalten") { app.toggleInclusionOfSelection() }
+                        Button("Markierte entfernen") { app.removeSelected() }
                             .disabled(app.selection.isEmpty)
                         Button("Nur Markierte behalten") { app.keepOnlySelected() }
                             .disabled(app.selection.isEmpty)
                         Divider()
-                        Button("Alle aufnehmen") { app.enableAll() }
                         Button("Alle entfernen") { app.disableAll() }
-                        Button("Umkehren") { app.invertInclusion() }
+                        Button("Alle zurückholen") { app.enableAll() }
+                            .disabled(app.removedCount == 0)
+                        Toggle("Entfernte anzeigen", isOn: $app.showsRemoved)
+                            .disabled(app.removedCount == 0)
                     }
                 } label: {
                     Label("Auswahl", systemImage: "checklist")

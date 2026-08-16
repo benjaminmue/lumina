@@ -133,9 +133,9 @@ struct SlideshowView: View {
 
     @ViewBuilder
     private var controlsOverlay: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-
+        // Gestapelt statt gestapelt-in-VStack: die Steuerung bringt ihren eigenen
+        // Verlauf über die volle Breite mit, der Fortschrittsbalken liegt darüber.
+        ZStack(alignment: .bottom) {
             if showControls || engine.didFinish {
                 PlayerControls(
                     state: .init(
@@ -163,11 +163,13 @@ struct SlideshowView: View {
                     .padding(.vertical, 6)
                     .background(.black.opacity(0.35), in: Capsule())
                     .padding(.bottom, 26)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.opacity)
             }
 
             if config.showProgress {
                 progressBar
+                    .frame(maxHeight: .infinity, alignment: .bottom)
             }
         }
         .animation(.easeOut(duration: 0.25), value: showControls)

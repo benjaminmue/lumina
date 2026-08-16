@@ -32,6 +32,26 @@ struct PlayerControls: View {
     var showsTitle: Bool = false
 
     var body: some View {
+        ZStack(alignment: .bottom) {
+            // Verlauf und Schatten brauchen die volle Fläche. Lag der Verlauf im
+            // Hintergrund des Inhalts, war er nur so breit wie die Kapsel und der
+            // Schatten wurde an derselben Kante abgeschnitten.
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.45)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 220)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .allowsHitTesting(false)
+
+            content
+                .padding(.bottom, 34)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+
+    private var content: some View {
         VStack(spacing: 12) {
             if showsTitle {
                 Text(state.title)
@@ -90,19 +110,7 @@ struct PlayerControls: View {
             .background(.ultraThinMaterial, in: Capsule())
             .environment(\.colorScheme, .dark)
             .overlay(Capsule().strokeBorder(.white.opacity(0.12)))
-            .shadow(color: .black.opacity(0.35), radius: 20, y: 8)
-        }
-        .frame(maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, 34)
-        .background(alignment: .bottom) {
-            // Ohne Verlauf steht die Leiste auf hellen Bildern ohne Kontrast.
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.45)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 200)
-            .allowsHitTesting(false)
+            .shadow(color: .black.opacity(0.35), radius: 18, y: 6)
         }
     }
 }
