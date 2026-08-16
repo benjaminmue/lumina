@@ -14,15 +14,43 @@ struct ThumbnailView: View {
     @State private var image: CGImage?
 
     var body: some View {
+        Button(action: onToggle) {
+            tile
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(item.name)
+        .accessibilityValue(isEnabled ? "In der Slideshow" : "Nicht in der Slideshow")
+        .accessibilityHint("Schaltet das Bild für die Slideshow an oder aus")
+        .contextMenu {
+            Button(isEnabled ? "Aus Slideshow entfernen" : "Zur Slideshow hinzufügen", action: onToggle)
+            Button("Slideshow hier starten", action: onPlayFromHere)
+            Divider()
+            Button("Im Finder zeigen") {
+                NSWorkspace.shared.activateFileViewerSelecting([item.url])
+            }
+        }
+        .help(item.url.path)
+        .task(id: item.url) {
+            image = await loader.image(for: item.url, maxPixelSize: 320)
+        }
+    }
+
+    private var tile: some View {
         VStack(spacing: 6) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.secondary.opacity(0.12))
 
                 if let image {
-                    Image(decorative: image, scale: 1, orientation: .up)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
+                    // Das Bild liegt als Overlay auf einer leeren Fläche: so bestimmt die
+                    // Kachel die Grösse und nicht umgekehrt. Direkt im ZStack würde ein
+                    // Hochformat-Bild die Zelle auseinanderziehen und Nachbarn überlappen.
+                    Color.clear
+                        .overlay {
+                            Image(decorative: image, scale: 1, orientation: .up)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        }
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
                     ProgressView().controlSize(.small)
@@ -31,7 +59,7 @@ struct ThumbnailView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(isEnabled ? Color.accentColor : Color.clear, lineWidth: 2.5)
             }
-            .frame(height: 120)
+            .aspectRatio(4.0 / 3.0, contentMode: .fit)
             .overlay(alignment: .topTrailing) {
                 Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
@@ -48,18 +76,5 @@ struct ThumbnailView: View {
                 .foregroundStyle(isEnabled ? .primary : .secondary)
         }
         .contentShape(Rectangle())
-        .onTapGesture(perform: onToggle)
-        .contextMenu {
-            Button(isEnabled ? "Aus Slideshow entfernen" : "Zur Slideshow hinzufügen", action: onToggle)
-            Button("Slideshow hier starten", action: onPlayFromHere)
-            Divider()
-            Button("Im Finder zeigen") {
-                NSWorkspace.shared.activateFileViewerSelecting([item.url])
-            }
-        }
-        .help(item.url.path)
-        .task(id: item.url) {
-            image = await loader.image(for: item.url, maxPixelSize: 320)
-        }
     }
 }

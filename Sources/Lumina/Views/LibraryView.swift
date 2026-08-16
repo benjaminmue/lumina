@@ -16,8 +16,10 @@ struct LibraryView: View {
                 grid
             }
         }
-        .frame(minWidth: 720, minHeight: 480)
+        .frame(minWidth: 860, minHeight: 620)
         .toolbar { toolbarContent }
+        // Ohne sichtbaren Toolbar-Hintergrund scrollen die Kacheln optisch in die Titelleiste.
+        .toolbarBackground(.visible, for: .windowToolbar)
         .inspector(isPresented: $showInspector) {
             SettingsInspector()
                 .inspectorColumnWidth(min: 300, ideal: 330, max: 420)
@@ -74,7 +76,7 @@ struct LibraryView: View {
 
     private var grid: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
                 ForEach(app.items) { item in
                     ThumbnailView(
                         item: item,
@@ -87,7 +89,9 @@ struct LibraryView: View {
             }
             .padding(18)
         }
-        .overlay(alignment: .bottom) { statusBar }
+        // safeAreaInset statt overlay: die Statuszeile beansprucht eigenen Platz,
+        // sonst verschwindet die unterste Kachelreihe darunter.
+        .safeAreaInset(edge: .bottom, spacing: 0) { statusBar }
     }
 
     private var statusBar: some View {
@@ -157,7 +161,7 @@ struct LibraryView: View {
                 Label("Start", systemImage: "play.fill")
             }
             .disabled(!app.canPresent)
-            .keyboardShortcut("r", modifiers: .command)
+            // Das Tastenkürzel hängt am Menüeintrag; hier würde es nur doppelt registriert.
             .help("Slideshow starten (⌘R)")
 
             Button {

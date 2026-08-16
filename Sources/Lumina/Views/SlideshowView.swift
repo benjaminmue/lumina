@@ -13,6 +13,7 @@ struct SlideshowView: View {
     @State private var showControls = false
     @State private var hideControlsTask: Task<Void, Never>?
     @State private var keyMonitor: Any?
+    @State private var playerWindow: NSWindow?
 
     init(
         items: [MediaItem],
@@ -72,14 +73,15 @@ struct SlideshowView: View {
             }
             .onTapGesture { engine.togglePause() }
             .onAppear {
-                // Zielauflösung an die tatsächliche Fläche koppeln, inklusive Reserve
-                // für den Ken-Burns-Zoom und Retina-Skalierung.
-                let scaleFactor = NSScreen.main?.backingScaleFactor ?? 2
-                let longestEdge = max(geo.size.width, geo.size.height) * scaleFactor * 1.3
-                engine.targetPixelSize = Int(min(max(longestEdge, 1280), 6000))
+                Task { await applyTargetPixelSize(for: geo.size) }
                 engine.start()
                 installKeyMonitor()
                 NSCursor.setHiddenUntilMouseMoves(true)
+            }
+            // Der Wechsel ins Vollbild passiert erst nach onAppear: ohne diese Kopplung
+            // liefe die ganze Slideshow mit der Auflösung des kleinen Fensters.
+            .onChange(of: geo.size) { _, newSize in
+                Task { await applyTargetPixelSize(for: newSize) }
             }
             .onDisappear {
                 engine.stop()
@@ -92,6 +94,7 @@ struct SlideshowView: View {
             }
         }
         .background(Color(white: config.backgroundBrightness))
+        .background(WindowAccessor { playerWindow = $0 })
     }
 
     // MARK: - Overlays
@@ -205,6 +208,15 @@ struct SlideshowView: View {
 
     // MARK: - Eingabe
 
+    /// Rechnet die Anzeigefläche in eine Dekodier-Auflösung um, inklusive Reserve
+    /// für Retina-Skalierung und den Ken-Burns-Zoom.
+    private func applyTargetPixelSize(for size: CGSize) async {
+        guard size.width > 0, size.height > 0 else { return }
+        let scaleFactor = playerWindow?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        let longestEdge = max(size.width, size.height) * scaleFactor * 1.3
+        await engine.setTargetPixelSize(Int(min(max(longestEdge, 1280), 6000)))
+    }
+
     private func revealControls() {
         showControls = true
         hideControlsTask?.cancel()
@@ -221,6 +233,10 @@ struct SlideshowView: View {
     private func installKeyMonitor() {
         removeKeyMonitor()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Der Monitor gilt appweit. Ohne diese Prüfung würde er Tastendrücke auch
+            // in Dialogen und anderen Fenstern der App verschlucken.
+            guard let target = playerWindow, event.window === target else { return event }
+
             switch event.keyCode {
             case 49: // Leertaste
                 engine.togglePause()

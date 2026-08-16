@@ -9,6 +9,8 @@ struct ContentView: View {
     /// Nur ein selbst ausgelöster Vollbildwechsel wird beim Beenden zurückgenommen -
     /// wer das Fenster vorher schon selbst auf Vollbild gestellt hat, behält es.
     @State private var didEnterFullscreen = false
+    /// Merkt einen Vollbildwunsch, solange die Fensterreferenz noch fehlt.
+    @State private var wantsFullscreen = false
 
     var body: some View {
         ZStack {
@@ -27,7 +29,14 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: app.isPresenting)
-        .background(WindowAccessor { window = $0 })
+        .background(
+            WindowAccessor { newWindow in
+                window = newWindow
+                // Wer direkt nach dem Start ⌘R drückt, ist schneller als die
+                // Fensterreferenz - der Wunsch wird hier nachgeholt.
+                if wantsFullscreen { enterFullscreenIfWanted() }
+            }
+        )
         // Deckt jeden Weg ab: Escape im Player, Menüeintrag oder Ende der Slideshow.
         .onChange(of: app.isPresenting) { _, presenting in
             if presenting {
@@ -39,12 +48,22 @@ struct ContentView: View {
     }
 
     private func enterFullscreenIfWanted() {
-        guard app.config.startFullscreen, let window, !window.isFullscreen else { return }
+        guard app.config.startFullscreen else {
+            wantsFullscreen = false
+            return
+        }
+        guard let window else {
+            wantsFullscreen = true
+            return
+        }
+        wantsFullscreen = false
+        guard !window.isFullscreen else { return }
         window.toggleFullScreen(nil)
         didEnterFullscreen = true
     }
 
     private func leaveFullscreenIfNeeded() {
+        wantsFullscreen = false
         if didEnterFullscreen, let window, window.isFullscreen {
             window.toggleFullScreen(nil)
         }

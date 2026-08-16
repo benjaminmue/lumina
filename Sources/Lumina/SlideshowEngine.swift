@@ -14,7 +14,11 @@ struct Slide: Identifiable, Equatable {
     let transition: TransitionStyle
     let direction: SlideshowSequence.Direction
 
-    static func == (lhs: Slide, rhs: Slide) -> Bool { lhs.id == rhs.id }
+    /// Der Vergleich zieht das Bild mit heran, damit ein Nachladen in höherer Auflösung
+    /// die View aktualisiert. Über `id` allein würde SwiftUI das Update verwerfen.
+    static func == (lhs: Slide, rhs: Slide) -> Bool {
+        lhs.id == rhs.id && lhs.image === rhs.image
+    }
 }
 
 /// Steuert den Ablauf der laufenden Slideshow: Timing, Vor- und Zurückspringen,
@@ -31,7 +35,7 @@ final class SlideshowEngine: ObservableObject {
     @Published private(set) var didFinish = false
 
     /// Zielauflösung fürs Dekodieren. Wird vom Player anhand der Fenstergrösse gesetzt.
-    var targetPixelSize: Int = 2560
+    private(set) var targetPixelSize: Int = 2560
 
     private enum Command {
         case next
@@ -58,6 +62,28 @@ final class SlideshowEngine: ObservableObject {
     /// Übernimmt geänderte Einstellungen im laufenden Betrieb.
     func update(config newConfig: SlideshowConfig) {
         config = newConfig
+    }
+
+    /// Setzt die Zielauflösung, etwa nach dem Wechsel in den Vollbildmodus.
+    ///
+    /// Wird die Fläche grösser, wird das laufende Bild sofort in besserer Auflösung
+    /// nachgeladen - sonst bliebe es bis zum nächsten Wechsel sichtbar unscharf.
+    func setTargetPixelSize(_ size: Int) async {
+        guard size > targetPixelSize else { return }
+        targetPixelSize = size
+
+        guard let current = slide,
+              let sharper = await loader.image(for: current.item.url, maxPixelSize: size)
+        else { return }
+
+        // Gleiche id: die View wird aktualisiert statt ersetzt, die Ken-Burns-Fahrt läuft weiter.
+        slide = Slide(
+            id: current.id,
+            item: current.item,
+            image: sharper,
+            transition: current.transition,
+            direction: current.direction
+        )
     }
 
     func start() {
