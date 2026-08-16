@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.0 - 2026-08-16
+
+- Animierte WebP, GIF und APNG werden abgespielt statt als Standbild gezeigt
+- Neue Einstellung "Animationen ganz abspielen": ein Cinemagraph wird nicht mitten in der Bewegung abgeschnitten
+- Badge mit Frame-Anzahl auf animierten Kacheln
+- Speicherbudget für Animationen mit adaptivem Downsampling
+- Gespeicherte Einstellungen überstehen neue Felder, statt auf Standardwerte zurückzufallen
+
+### Behoben
+
+- Hochformat-Bilder sprengten die Raster-Kachel und überlappten Nachbarn
+- Vollbild-Slideshow lief mit der Dekodier-Auflösung des kleinen Fensters, Bilder waren unscharf
+- Tastatur-Monitor verschluckte Tasten in anderen Fenstern der App
+- Vollbildstart schlug fehl, wenn direkt nach dem Programmstart gestartet wurde
+- Statuszeile verdeckte die unterste Kachelreihe
+- Kacheln waren nur mit der Maus bedienbar
+
 ## 1.0.0 - 2026-08-16
 
 Erste Version.

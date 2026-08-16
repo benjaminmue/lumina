@@ -31,6 +31,18 @@ Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast, 
 - Ken-Burns-Fahrt in vier Stufen (aus, dezent, mittel, stark): langsamer Zoom plus Schwenk
 - Hintergrundhelligkeit stufenlos von Schwarz bis Weiss
 
+**Animierte Bilder**
+
+Animierte WebP, GIF und APNG werden abgespielt, nicht als Standbild gezeigt - Cinemagraphs
+laufen also so, wie sie gedacht sind. Auf Wunsch bleibt ein animiertes Bild so lange stehen,
+bis die Animation mindestens einmal komplett durchgelaufen ist ("Animationen ganz abspielen").
+Kacheln in der Bibliothek zeigen die Zahl der Einzelbilder als Badge.
+
+Die Frames werden vollständig in den Speicher dekodiert. Ein Speicherbudget von 384 MB
+begrenzt das: passt ein langer Clip in Vollauflösung nicht hinein, wird die Auflösung
+halbiert; reicht auch das nicht, läuft die Datei als Standbild. Über die native Auflösung
+hinaus wird nie dekodiert.
+
 **Ablauf**
 
 - Anzeigedauer 1 bis 60 s, Übergangsdauer 0 bis 3 s
@@ -59,7 +71,7 @@ Voraussetzung: Xcode oder Command Line Tools mit Swift 6.
 ```bash
 ./scripts/build-app.sh              # baut dist/Lumina.app
 ./scripts/build-app.sh --install    # baut und kopiert nach /Applications
-swift test                          # 27 Unit-Tests (braucht XCTest aus Xcode)
+swift test                          # 41 Unit-Tests (braucht XCTest aus Xcode)
 swift scripts/make-icon.swift       # erzeugt Resources/AppIcon.icns neu
 ```
 
@@ -72,7 +84,8 @@ Sources/LuminaCore/     Logik ohne UI-Abhängigkeit, vollständig testbar
   SlideshowConfig       Einstellungen inklusive Wertebereichs-Prüfung
   MediaItem             Datei-Scan, Sortierung, unterstützte Formate
   SlideshowSequence     Ablaufsteuerung: weiter, zurück, Loop, Vorausladen
-  ImageLoader           Actor mit Downsampling beim Dekodieren und zwei Caches
+  ImageLoader           Actor mit Downsampling beim Dekodieren und drei Caches
+  AnimatedImage         Frames und Zeitachse animierter Bilder
   KenBurnsPlan          Reproduzierbare Kamerafahrt pro Bild
   SeededGenerator       Deterministischer PRNG für stabile Animationen
 
@@ -97,3 +110,5 @@ Caches, damit viele kleine Thumbnails die grossen Bilder nicht verdrängen.
 
 JPEG, PNG, HEIC/HEIF, GIF, TIFF, BMP, WebP, AVIF, JPEG 2000, PSD sowie die
 gängigen RAW-Formate (DNG, CR2, CR3, NEF, ARW, ORF, RAF, RW2).
+
+Animiert abgespielt werden WebP, GIF, APNG und HEICS.
