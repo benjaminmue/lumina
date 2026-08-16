@@ -3,96 +3,182 @@ import CoreGraphics
 import LuminaCore
 import SwiftUI
 
-/// Vorschaukachel im Hauptfenster. Klick schaltet das Bild für die Slideshow an oder aus.
+/// Vorschaukachel im Hauptfenster.
+///
+/// Markieren und Zugehörigkeit zur Slideshow sind zwei getrennte Dinge: ein Klick
+/// markiert (wie im Finder, mit Cmd und Shift), das Häkchen oben rechts nimmt das
+/// Bild in die Show oder heraus, ein Doppelklick startet ab hier.
 struct ThumbnailView: View {
     let item: MediaItem
     let loader: ImageLoader
     let isEnabled: Bool
-    let onToggle: () -> Void
+    let isSelected: Bool
+    let onSelect: (_ extend: Bool, _ toggle: Bool) -> Void
+    let onToggleInclusion: () -> Void
     let onPlayFromHere: () -> Void
 
     @State private var image: CGImage?
     @State private var frameCount = 1
+    @State private var isHovered = false
+
+    private let corner: CGFloat = 10
+
+    init(
+        item: MediaItem,
+        loader: ImageLoader,
+        isEnabled: Bool,
+        isSelected: Bool,
+        onSelect: @escaping (Bool, Bool) -> Void,
+        onToggleInclusion: @escaping () -> Void,
+        onPlayFromHere: @escaping () -> Void
+    ) {
+        self.item = item
+        self.loader = loader
+        self.isEnabled = isEnabled
+        self.isSelected = isSelected
+        self.onSelect = onSelect
+        self.onToggleInclusion = onToggleInclusion
+        self.onPlayFromHere = onPlayFromHere
+        // Bereits geladene Vorschau sofort setzen, sonst blitzt die Kachel beim
+        // Scrollen leer auf, bevor die Aufgabe unten greift.
+        _image = State(initialValue: loader.cachedImage(for: item.url, maxPixelSize: 320))
+    }
 
     var body: some View {
-        Button(action: onToggle) {
-            tile
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(item.name)
-        .accessibilityValue(isEnabled ? "In der Slideshow" : "Nicht in der Slideshow")
-        .accessibilityHint("Schaltet das Bild für die Slideshow an oder aus")
-        .contextMenu {
-            Button(isEnabled ? "Aus Slideshow entfernen" : "Zur Slideshow hinzufügen", action: onToggle)
-            Button("Slideshow hier starten", action: onPlayFromHere)
-            Divider()
-            Button("Im Finder zeigen") {
-                NSWorkspace.shared.activateFileViewerSelecting([item.url])
+        tile
+            .contentShape(RoundedRectangle(cornerRadius: corner))
+            .onTapGesture(count: 2, perform: onPlayFromHere)
+            .onTapGesture {
+                // SwiftUI reicht bei Tap-Gesten keine Modifiertasten durch.
+                let flags = NSEvent.modifierFlags
+                onSelect(flags.contains(.shift), flags.contains(.command))
             }
-        }
-        .help(item.url.path)
-        .task(id: item.url) {
-            image = await loader.image(for: item.url, maxPixelSize: 320)
-            // Kopfdaten statt Pixel: der Loader liest sie im Hintergrund und merkt sie sich.
-            frameCount = await loader.animationInfo(for: item.url)?.frameCount ?? 1
-        }
+            .onHover { isHovered = $0 }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(item.name)
+            .accessibilityValue(isEnabled ? "In der Slideshow" : "Nicht in der Slideshow")
+            .contextMenu { contextMenu }
+            .help(item.url.path)
+            .task(id: item.url) {
+                if image == nil {
+                    image = await loader.image(for: item.url, maxPixelSize: 320)
+                }
+                frameCount = await loader.animationInfo(for: item.url)?.frameCount ?? 1
+            }
     }
 
     private var isAnimated: Bool { frameCount > 1 }
 
-    private var tile: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.secondary.opacity(0.12))
+    // MARK: - Kachel
 
+    private var tile: some View {
+        RoundedRectangle(cornerRadius: corner)
+            .fill(.quaternary)
+            .aspectRatio(4.0 / 3.0, contentMode: .fit)
+            .overlay {
                 if let image {
-                    // Das Bild liegt als Overlay auf einer leeren Fläche: so bestimmt die
-                    // Kachel die Grösse und nicht umgekehrt. Direkt im ZStack würde ein
-                    // Hochformat-Bild die Zelle auseinanderziehen und Nachbarn überlappen.
-                    Color.clear
-                        .overlay {
-                            Image(decorative: image, scale: 1, orientation: .up)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Image(decorative: image, scale: 1, orientation: .up)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fill)
                 } else {
                     ProgressView().controlSize(.small)
                 }
-
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isEnabled ? Color.accentColor : Color.clear, lineWidth: 2.5)
             }
-            .aspectRatio(4.0 / 3.0, contentMode: .fit)
-            .overlay(alignment: .topTrailing) {
+            .clipShape(RoundedRectangle(cornerRadius: corner))
+            // Nicht enthaltene Bilder werden entsättigt und gedimmt: das liest sich
+            // sofort, ohne dass ein Rahmen um jede Kachel nötig wäre.
+            .saturation(isEnabled ? 1 : 0)
+            .opacity(isEnabled ? 1 : 0.4)
+            .overlay(alignment: .bottom) { hoverFooter }
+            .overlay(alignment: .topLeading) { animationBadge }
+            .overlay(alignment: .topTrailing) { inclusionToggle }
+            .overlay {
+                RoundedRectangle(cornerRadius: corner)
+                    .strokeBorder(Color.accentColor, lineWidth: isSelected ? 3 : 0)
+            }
+            .scaleEffect(isHovered ? 1.015 : 1)
+            .animation(.snappy(duration: 0.14), value: isHovered)
+            .animation(.snappy(duration: 0.14), value: isSelected)
+            .animation(.snappy(duration: 0.2), value: isEnabled)
+    }
+
+    @ViewBuilder
+    private var hoverFooter: some View {
+        if isHovered {
+            HStack(spacing: 8) {
+                Text(item.name)
+                    .font(.caption)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Spacer(minLength: 4)
+
+                Button(action: onPlayFromHere) {
+                    Image(systemName: "play.fill").font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help("Slideshow hier starten")
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.top, 14)
+            .padding(.bottom, 7)
+            .background(
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.65)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var animationBadge: some View {
+        if isAnimated {
+            Label(isHovered ? "\(frameCount)" : "", systemImage: "play.circle.fill")
+                .labelStyle(.titleAndIcon)
+                .font(.caption2)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(.thinMaterial, in: Capsule())
+                .padding(6)
+                .help("Animiertes Bild mit \(frameCount) Einzelbildern")
+        }
+    }
+
+    /// Das Häkchen ist der einzige Weg, ein Bild direkt aus der Show zu nehmen -
+    /// darum ist es bei nicht enthaltenen Bildern immer sichtbar.
+    @ViewBuilder
+    private var inclusionToggle: some View {
+        if !isEnabled || isHovered || isSelected {
+            Button(action: onToggleInclusion) {
                 Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, isEnabled ? Color.accentColor : Color.black.opacity(0.35))
-                    .padding(6)
+                    .foregroundStyle(.white, isEnabled ? Color.accentColor : Color.black.opacity(0.4))
+                    .shadow(color: .black.opacity(0.25), radius: 2)
             }
-            .overlay(alignment: .bottomLeading) {
-                if isAnimated {
-                    Label("\(frameCount)", systemImage: "play.circle.fill")
-                        .font(.caption2)
-                        .labelStyle(.titleAndIcon)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(.black.opacity(0.55), in: Capsule())
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .help("Animiertes Bild mit \(frameCount) Einzelbildern")
-                }
-            }
-            .opacity(isEnabled ? 1 : 0.45)
-
-            Text(item.name)
-                .font(.caption)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .foregroundStyle(isEnabled ? .primary : .secondary)
+            .buttonStyle(.plain)
+            .padding(6)
+            .help(isEnabled ? "Aus der Slideshow nehmen" : "Zur Slideshow hinzufügen")
+            .transition(.opacity)
         }
-        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var contextMenu: some View {
+        Button(isEnabled ? "Aus Slideshow nehmen" : "Zur Slideshow hinzufügen", action: onToggleInclusion)
+        Button("Slideshow hier starten", action: onPlayFromHere)
+        Divider()
+        Button("Im Finder zeigen") {
+            NSWorkspace.shared.activateFileViewerSelecting([item.url])
+        }
+        Button("Pfad kopieren") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(item.url.path, forType: .string)
+        }
     }
 }

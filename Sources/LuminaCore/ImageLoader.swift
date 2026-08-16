@@ -18,14 +18,40 @@ public actor ImageLoader {
         }
     }
 
-    private let cache = NSCache<NSString, CachedImage>()
+    /// Threadsicherer Bild-Cache.
+    ///
+    /// NSCache ist selbst threadsicher, aber nicht als `Sendable` deklariert - die
+    /// Hülle macht das explizit. Sie liegt ausserhalb der Actor-Isolation, damit
+    /// Views bereits geladene Bilder synchron holen können; ohne das blitzt beim
+    /// Scrollen jede fertige Kachel kurz leer auf.
+    private final class ImageCache: @unchecked Sendable {
+        private let storage = NSCache<NSString, CachedImage>()
+
+        init(limitBytes: Int) {
+            storage.totalCostLimit = limitBytes
+        }
+
+        func value(for key: String) -> CachedImage? {
+            storage.object(forKey: key as NSString)
+        }
+
+        func insert(_ image: CachedImage, for key: String, cost: Int) {
+            storage.setObject(image, forKey: key as NSString, cost: cost)
+        }
+
+        func removeAll() {
+            storage.removeAllObjects()
+        }
+    }
+
+    private nonisolated let cache: ImageCache
     private var inFlight: [String: Task<CGImage?, Never>] = [:]
     /// Frame-Anzahl und Delays je Datei. Enthält keine Pixel und bleibt darum klein.
     private var infoCache: [String: AnimationInfo] = [:]
 
     /// - Parameter memoryLimitMB: Obergrenze für den Bild-Cache.
     public init(memoryLimitMB: Int = 512) {
-        cache.totalCostLimit = memoryLimitMB * 1024 * 1024
+        cache = ImageCache(limitBytes: memoryLimitMB * 1024 * 1024)
     }
 
     /// Liefert das Bild in mindestens `maxPixelSize` Kantenlänge.
@@ -33,9 +59,7 @@ public actor ImageLoader {
     /// Läuft für dieselbe URL nur einmal gleichzeitig; parallele Anfragen (Anzeige +
     /// Vorausladen) teilen sich denselben Task.
     public func image(for url: URL, maxPixelSize: Int) async -> CGImage? {
-        let key = url.path as NSString
-
-        if let cached = cache.object(forKey: key), cached.pixelSize >= maxPixelSize {
+        if let cached = cache.value(for: url.path), cached.pixelSize >= maxPixelSize {
             return cached.image
         }
         if let running = inFlight[url.path] {
@@ -51,14 +75,23 @@ public actor ImageLoader {
 
         if let result {
             let cost = result.bytesPerRow * result.height
-            cache.setObject(CachedImage(image: result, pixelSize: maxPixelSize), forKey: key, cost: cost)
+            cache.insert(CachedImage(image: result, pixelSize: maxPixelSize), for: url.path, cost: cost)
         }
         return result
     }
 
+    /// Bereits geladenes Bild, ohne zu warten.
+    ///
+    /// Für Views, die beim Erscheinen sofort etwas zeigen sollen, statt erst nach
+    /// einem Durchlauf durch den Actor.
+    public nonisolated func cachedImage(for url: URL, maxPixelSize: Int) -> CGImage? {
+        guard let cached = cache.value(for: url.path), cached.pixelSize >= maxPixelSize else { return nil }
+        return cached.image
+    }
+
     /// Lädt Bilder im Hintergrund vor, ohne auf das Ergebnis zu warten.
     public func prefetch(_ urls: [URL], maxPixelSize: Int) {
-        for url in urls where cache.object(forKey: url.path as NSString) == nil && inFlight[url.path] == nil {
+        for url in urls where cache.value(for: url.path) == nil && inFlight[url.path] == nil {
             let task = Task.detached(priority: .utility) { () -> CGImage? in
                 Self.decode(url: url, maxPixelSize: maxPixelSize)
             }
@@ -74,11 +107,11 @@ public actor ImageLoader {
         inFlight[url.path] = nil
         guard let image else { return }
         let cost = image.bytesPerRow * image.height
-        cache.setObject(CachedImage(image: image, pixelSize: maxPixelSize), forKey: url.path as NSString, cost: cost)
+        cache.insert(CachedImage(image: image, pixelSize: maxPixelSize), for: url.path, cost: cost)
     }
 
     public func clearCache() {
-        cache.removeAllObjects()
+        cache.removeAll()
         infoCache.removeAll()
     }
 

@@ -59,10 +59,23 @@ struct LuminaCommands: Commands {
 
             Divider()
 
-            Button("Alle Bilder auswählen") { app.enableAll() }
+            // Kein Tastenkürzel: die Leertaste hängt am Raster selbst, als Menükürzel
+            // würde sie auch im Suchfeld und im Player abgefangen.
+            Button("Markierte umschalten") { app.toggleInclusionOfSelection() }
+                .disabled(app.selection.isEmpty)
+            Button("Alle Bilder aufnehmen") { app.enableAll() }
                 .disabled(app.items.isEmpty)
-            Button("Auswahl aufheben") { app.disableAll() }
+            Button("Alle Bilder entfernen") { app.disableAll() }
                 .disabled(app.items.isEmpty)
+        }
+
+        CommandGroup(after: .pasteboard) {
+            Button("Alle markieren") { app.selectAll() }
+                .keyboardShortcut("a", modifiers: .command)
+                .disabled(app.items.isEmpty)
+            Button("Markierung aufheben") { app.clearSelection() }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+                .disabled(app.selection.isEmpty)
         }
     }
 }

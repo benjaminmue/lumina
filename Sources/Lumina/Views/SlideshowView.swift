@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import LuminaCore
 import SwiftUI
 
@@ -14,6 +15,8 @@ struct SlideshowView: View {
     @State private var hideControlsTask: Task<Void, Never>?
     @State private var keyMonitor: Any?
     @State private var playerWindow: NSWindow?
+    /// Kleine Vorschau des ersten Bildes, damit der Start nicht schwarz ist.
+    @State private var posterImage: CGImage?
 
     init(
         items: [MediaItem],
@@ -49,26 +52,20 @@ struct SlideshowView: View {
                         isPaused: engine.isPaused,
                         maxPixelSize: engine.targetPixelSize
                     )
-                        .id(slide.id)
-                        .transition(
-                            SlideTransitions.transition(
-                                for: slide.transition,
-                                direction: slide.direction,
-                                duration: config.transitionDuration
-                            )
+                    .id(slide.id)
+                    .transition(
+                        SlideTransitions.transition(
+                            for: slide.transition,
+                            direction: slide.direction,
+                            duration: config.transitionDuration
                         )
-                        .zIndex(Double(slide.id))
-                } else if engine.isLoading {
-                    ProgressView()
-                        .controlSize(.large)
+                    )
+                    .zIndex(Double(slide.id))
+                } else {
+                    loadingState
                 }
 
-                if engine.didFinish {
-                    endOverlay
-                        .zIndex(10_000)
-                }
-
-                controlsOverlay(width: geo.size.width)
+                controlsOverlay
                     .zIndex(20_000)
             }
             .clipped()
@@ -97,118 +94,98 @@ struct SlideshowView: View {
             .onChange(of: config) { _, newValue in
                 engine.update(config: newValue)
             }
+            .task {
+                // Die Vorschau liegt aus dem Raster meist schon im Cache.
+                if let first = items.first {
+                    posterImage = await loader.image(for: first.url, maxPixelSize: 320)
+                }
+            }
         }
         .background(Color(white: config.backgroundBrightness))
         .background(WindowAccessor { playerWindow = $0 })
     }
 
-    // MARK: - Overlays
+    // MARK: - Zustände
 
-    private var endOverlay: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 48, weight: .light))
-            Text("Slideshow beendet")
-                .font(.title3)
-            HStack(spacing: 12) {
-                Button("Von vorne") { engine.jump(to: 0) }
-                Button("Schliessen") { onExit() }
-                    .keyboardShortcut(.defaultAction)
+    /// Statt Spinner auf Schwarz: das Bild unscharf vorab, wie es Fotos und TV machen.
+    private var loadingState: some View {
+        ZStack {
+            if let posterImage {
+                Image(decorative: posterImage, scale: 1, orientation: .up)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .blur(radius: 44, opaque: true)
+                    .opacity(0.55)
+                    .ignoresSafeArea()
+            }
+
+            VStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white.opacity(0.8))
+                Text("Wird geladen …")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .padding(32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .transition(.opacity)
     }
 
     @ViewBuilder
-    private func controlsOverlay(width: CGFloat) -> some View {
-        VStack {
-            Spacer()
+    private var controlsOverlay: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
 
-            if config.showFilename, let slide = engine.slide, !showControls {
+            if showControls || engine.didFinish {
+                PlayerControls(
+                    state: .init(
+                        index: engine.currentIndex,
+                        count: engine.count,
+                        isPaused: engine.isPaused,
+                        title: engine.slide?.item.name ?? "",
+                        didFinish: engine.didFinish
+                    ),
+                    actions: .init(
+                        previous: { engine.previous() },
+                        togglePause: { engine.togglePause() },
+                        next: { engine.next() },
+                        restart: { engine.jump(to: 0) },
+                        exit: onExit
+                    ),
+                    showsTitle: config.showFilename
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if config.showFilename, let slide = engine.slide {
                 Text(slide.item.name)
                     .font(.callout)
+                    .foregroundStyle(.white.opacity(0.75))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(.black.opacity(0.45), in: Capsule())
-                    .foregroundStyle(.white)
-                    .padding(.bottom, config.showProgress ? 14 : 24)
+                    .background(.black.opacity(0.35), in: Capsule())
+                    .padding(.bottom, 26)
                     .transition(.opacity)
             }
 
-            if showControls {
-                controlBar
-                    .padding(.bottom, 28)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
             if config.showProgress {
-                GeometryReader { geo in
-                    Rectangle()
-                        .fill(.white.opacity(0.75))
-                        .frame(width: geo.size.width * engine.progress)
-                        .animation(.linear(duration: 0.05), value: engine.progress)
-                }
-                .frame(height: 3)
-                .background(.white.opacity(0.15))
+                progressBar
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: showControls)
+        .animation(.easeOut(duration: 0.25), value: showControls)
+        .animation(.easeOut(duration: 0.25), value: engine.didFinish)
     }
 
-    private var controlBar: some View {
-        HStack(spacing: 18) {
-            Button {
-                engine.previous()
-            } label: {
-                Image(systemName: "backward.fill")
-            }
-            .help("Vorheriges Bild (Pfeil links)")
-
-            Button {
-                engine.togglePause()
-            } label: {
-                Image(systemName: engine.isPaused ? "play.fill" : "pause.fill")
-                    .frame(width: 22)
-            }
-            .help("Pause / Weiter (Leertaste)")
-
-            Button {
-                engine.next()
-            } label: {
-                Image(systemName: "forward.fill")
-            }
-            .help("Nächstes Bild (Pfeil rechts)")
-
-            Divider().frame(height: 18)
-
-            Text("\(engine.currentIndex + 1) / \(engine.count)")
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(.secondary)
-
-            if let slide = engine.slide {
-                Text(slide.item.name)
-                    .font(.callout)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: 320, alignment: .leading)
-            }
-
-            Divider().frame(height: 18)
-
-            Button {
-                onExit()
-            } label: {
-                Image(systemName: "xmark")
-            }
-            .help("Slideshow beenden (Esc)")
+    /// Im Ruhezustand ein Haarstrich, bei sichtbarer Steuerung kräftiger.
+    private var progressBar: some View {
+        GeometryReader { geo in
+            Rectangle()
+                .fill(engine.isPaused ? Color.accentColor : .white)
+                .opacity(showControls ? 0.9 : 0.55)
+                .frame(width: geo.size.width * engine.progress)
+                .animation(.linear(duration: 0.05), value: engine.progress)
         }
-        .buttonStyle(.borderless)
-        .font(.title3)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 14)
-        .background(.regularMaterial, in: Capsule())
-        .shadow(radius: 18, y: 6)
+        .frame(height: showControls ? 4 : 2)
+        .background(.white.opacity(0.12))
+        .animation(.easeOut(duration: 0.2), value: showControls)
     }
 
     // MARK: - Eingabe
