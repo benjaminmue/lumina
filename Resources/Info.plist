@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleExecutable</key>
+	<string>Lumina</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>ch.bebamu.lumina</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Lumina</string>
+	<key>CFBundleDisplayName</key>
+	<string>Lumina</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.photography</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Benjamin</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Lumina liest Bilder aus dem Schreibtisch-Ordner, wenn du ihn als Slideshow-Quelle wählst.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Lumina liest Bilder aus dem Dokumente-Ordner, wenn du ihn als Slideshow-Quelle wählst.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Lumina liest Bilder aus dem Downloads-Ordner, wenn du ihn als Slideshow-Quelle wählst.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Lumina liest Bilder von angeschlossenen Datenträgern, wenn du sie als Slideshow-Quelle wählst.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Lumina liest Bilder von Netzlaufwerken, wenn du sie als Slideshow-Quelle wählst.</string>
+</dict>
+</plist>
