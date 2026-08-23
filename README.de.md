@@ -22,6 +22,7 @@ festen Ordnern. Lumina liest jeden Ordner, spielt ihn im Vollbild ab und vergiss
 - Ken-Burns-Fahrt in vier Stufen, pro Bild reproduzierbar
 - Animierte WebP, GIF und APNG werden abgespielt statt als Standbild gezeigt
 - Drei Vorlagen: Bildschirmschoner, Diaschau, Präsentation
+- Updates installieren sich selbst: jetzt, beim Beenden oder später
 
 ## Zusammenstellen
 

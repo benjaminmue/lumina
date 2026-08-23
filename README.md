@@ -75,9 +75,14 @@ language it does not have.
 
 **Updates**
 
-Optionally checks the GitHub releases page at launch, at most once a week, and
-reports a newer version as a hint in the status bar rather than a dialog. This
-is the only network access and it can be turned off.
+Updates install themselves. The app checks the releases page at launch, at most
+once a week, and offers the usual three choices: install now, install when you
+quit, or remind me later. Every update is verified against a public key built
+into the app, so a tampered download is refused.
+
+Because the app is replaced from the inside rather than downloaded through a
+browser, macOS only asks about unverified software on the very first install.
+The update check is the only network access and it can be turned off.
 
 ## Install
 
