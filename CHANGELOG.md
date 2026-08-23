@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.3.0 - 2026-08-23
+
+### Einstellungen-Fenster
+
+Neues Fenster unter ⌘-Komma mit vier Bereichen: Allgemein, Wiedergabe,
+Aktualisierung, Über. Die Trennung zur Sidebar im Hauptfenster: was eine Vorlage
+überschreibt, bleibt dort, sonst würde ein Klick auf "Bildschirmschoner"
+stillschweigend globale Einstellungen mitverändern.
+
+- Neu: Ruhezustand während der Wiedergabe verhindern. Eine Slideshow, die nach
+  zehn Minuten vom Bildschirmschoner abgelöst wird, verfehlt ihren Zweck
+- Neu: Verzögerung, nach der der Mauszeiger verschwindet
+- Neu: Rückfrage vor dem Leeren der Liste
+- Neu: Letzte Quellen beim Start laden, abschaltbar
+
+### Aktualisierung
+
+Sucht auf Wunsch beim Start nach einer neueren Version, höchstens einmal pro
+Woche, und meldet sie als Hinweis in der Statuszeile statt als Dialog. Einzelne
+Versionen lassen sich überspringen. Das ist der einzige Netzwerkzugriff der App
+und lässt sich abschalten.
+
+### Sprachen
+
+Englisch, Deutsch, Französisch, Italienisch, Spanisch und Japanisch. Die App
+folgt der Systemsprache; nur wenn das System eine Sprache verlangt, die es hier
+nicht gibt, fragt sie einmalig nach. Umstellbar in den Einstellungen, wobei die
+Menüleiste erst beim nächsten Start nachzieht.
+
+### Ausserdem
+
+- Neues App-Icon
+- Formulare für Fehlermeldungen und Funktionswünsche auf GitHub. Version und
+  macOS-Version füllt die App selbst aus, wenn man sie von dort aus öffnet
+
 ## 1.2.0 - 2026-08-16
 
 Überarbeitete Oberfläche, aus zwei Reviews entstanden: einem gestalterischen

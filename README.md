@@ -60,6 +60,25 @@ APNG stay on ImageIO, where the frame counts are small enough for it to keep up.
 Frames are streamed through a bounded buffer, so a 400 frame file starts as fast as a JPEG and
 memory stays constant regardless of length.
 
+**Settings**
+
+A settings window (Cmd comma) holds what you set once and forget: start in full
+screen, keep the Mac awake while playing, pointer hide delay, import behaviour.
+Everything a preset overwrites stays in the inspector instead, so a preset click
+cannot silently change global settings.
+
+**Languages**
+
+English, German, French, Italian, Spanish and Japanese. The app follows your
+system language. It only asks once, at first launch, if your system asks for a
+language it does not have.
+
+**Updates**
+
+Optionally checks the GitHub releases page at launch, at most once a week, and
+reports a newer version as a hint in the status bar rather than a dialog. This
+is the only network access and it can be turned off.
+
 ## Install
 
 Download the DMG from [Releases](https://github.com/benjaminmue/lumina/releases), drag Lumina to
@@ -105,7 +124,7 @@ brew install webp
 ./scripts/build-app.sh              # builds dist/Lumina.app
 ./scripts/build-app.sh --install    # also copies it to /Applications
 ./scripts/make-dmg.sh               # builds dist/Lumina-<version>.dmg
-swift test                          # 57 unit tests (XCTest needs Xcode)
+swift test                          # 85 unit tests (XCTest needs Xcode)
 swift scripts/make-icon.swift       # regenerates Resources/AppIcon.icns
 ```
 

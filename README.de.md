@@ -60,7 +60,7 @@ brew install webp
 
 ./scripts/build-app.sh              # baut dist/Lumina.app
 ./scripts/make-dmg.sh               # baut dist/Lumina-<version>.dmg
-swift test                          # 57 Unit-Tests (XCTest braucht Xcode)
+swift test                          # 85 Unit-Tests (XCTest braucht Xcode)
 ```
 
 Ohne libwebp scheitert der Build. Die Bibliothek wird ins Bundle kopiert, die fertige App
