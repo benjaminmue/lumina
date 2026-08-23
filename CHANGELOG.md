@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The author name is spelled with its umlaut: Benjamin Müller. This corrects the
+  licence, the bundle copyright shown in Finder, and the link in the About pane
+- The Help menu opens the readme at the controls section rather than the top of
+  the page, and that section now lists every shortcut
+
 ## 1.5.0 - 2026-08-24
 
 - The Help menu now opens the documentation, the two issue forms and the release
