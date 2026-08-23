@@ -207,16 +207,29 @@ final class KenBurnsPlanTests: XCTestCase {
 
 final class SlideshowSequenceTests: XCTestCase {
 
+    /// Zwischenwerte mit ausgeschriebenen Typen: der Ausdruck in einem Zug
+    /// überforderte den Typechecker älterer Swift-Versionen auf dem CI-Runner.
     private func items(_ count: Int) -> [MediaItem] {
-        (0..<count).map { index in
-            MediaItem(
-                url: URL(fileURLWithPath: "/tmp/lumina/bild-\(index).jpg"),
-                name: "bild-\(index).jpg",
-                creationDate: Date(timeIntervalSince1970: TimeInterval(index)),
-                modificationDate: Date(timeIntervalSince1970: TimeInterval(100 - index)),
-                fileSize: Int64((count - index) * 1000)
+        var result: [MediaItem] = []
+        result.reserveCapacity(count)
+
+        for index in 0..<count {
+            let name: String = "bild-\(index).jpg"
+            let created: Date = Date(timeIntervalSince1970: TimeInterval(index))
+            let modified: Date = Date(timeIntervalSince1970: TimeInterval(100 - index))
+            let size: Int64 = Int64(count - index) * 1000
+
+            result.append(
+                MediaItem(
+                    url: URL(fileURLWithPath: "/tmp/lumina/" + name),
+                    name: name,
+                    creationDate: created,
+                    modificationDate: modified,
+                    fileSize: size
+                )
             )
         }
+        return result
     }
 
     func testAdvanceStopsAtEndWithoutLoop() {
