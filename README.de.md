@@ -32,6 +32,25 @@ Löschtaste oder dem Kreuz auf der Kachel; entfernte Bilder verschwinden aus dem
 die Dateien bleiben unangetastet. Der Rückweg steht in der Statuszeile. Ein Doppelklick
 startet die Slideshow ab diesem Bild.
 
+## Steuerung in der Bibliothek
+
+Markieren und Entfernen sind zwei Schritte, wie im Finder. Markiert wird, worauf sich
+die nächste Aktion bezieht; erst die Löschtaste nimmt Bilder aus der Slideshow, und
+die Statuszeile bietet den Rückweg an.
+
+| Taste | Funktion |
+|---|---|
+| Pfeiltasten | Markierung bewegen |
+| Umschalt + Klick | Bereich markieren |
+| Cmd + Klick | Zur Markierung hinzufügen |
+| Cmd A | Alle markieren |
+| Umschalt Cmd A | Markierung aufheben |
+| Löschtaste | Markierte Bilder aus der Slideshow nehmen |
+| Return, Doppelklick | Slideshow ab hier starten |
+| Cmd O, Umschalt Cmd O | Bilder hinzufügen, Ordner hinzufügen |
+| Cmd R | Slideshow starten |
+| Cmd Komma | Einstellungen |
+
 ## Steuerung im Player
 
 | Taste | Funktion |

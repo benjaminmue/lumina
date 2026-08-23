@@ -114,6 +114,10 @@ acceptable to you, build it yourself from source, that takes one command.
 
 ## Controls
 
+Marking and removing are separate, as in the Finder. You mark images to act on
+them; only Delete takes them out of the slideshow, and the status bar offers the
+way back.
+
 ### Library
 
 | Key | Action |
@@ -121,11 +125,13 @@ acceptable to you, build it yourself from source, that takes one command.
 | Arrow keys | Move selection |
 | Shift + click | Select range |
 | Cmd + click | Add to selection |
-| Cmd A | Select all |
-| Delete | Remove selected from the slideshow |
+| Cmd A | Mark all |
+| Shift Cmd A | Clear marks |
+| Delete | Remove marked images from the slideshow |
 | Return, double click | Start slideshow here |
 | Cmd O, Shift Cmd O | Add images, add folders |
 | Cmd R | Start slideshow |
+| Cmd comma | Settings |
 
 ### Player
 

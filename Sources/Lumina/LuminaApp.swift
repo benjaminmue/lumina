@@ -108,7 +108,7 @@ struct LuminaCommands: Commands {
         // Ohne eigenen Eintrag meldet macOS "Hilfe ist für Lumina nicht verfügbar",
         // weil die App kein Hilfebuch mitbringt. Die Dokumentation liegt im Repo.
         CommandGroup(replacing: .help) {
-            Button("Lumina Help") { open("https://github.com/benjaminmue/lumina#readme") }
+            Button("Lumina Help") { open("https://github.com/benjaminmue/lumina#controls") }
             Divider()
             Button("Report a Bug") { openIssue(template: "bug_report.yml") }
             Button("Request a Feature") { openIssue(template: "feature_request.yml") }
