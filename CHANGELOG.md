@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 - 2026-08-24
+
+- The Help menu now opens the documentation, the two issue forms and the release
+  notes. Before, macOS answered "Help isn't available for Lumina", because the app
+  ships no help book
+- Release notes in the update window show the actual changes instead of loading
+  the GitHub page with all its navigation
+
 ## 1.4.0 - 2026-08-23
 
 ### Updates install themselves
