@@ -1,135 +1,52 @@
 #!/usr/bin/env swift
 //
-// Erzeugt Resources/AppIcon.icns.
+// Erzeugt Resources/AppIcon.icns aus Resources/AppIcon.svg.
 // Aufruf: swift scripts/make-icon.swift
 //
-// Gezeichnet wird ein Stapel aus drei Fotokarten vor einem warmen Verlauf -
-// bewusst ohne SF Symbols, damit das Icon frei verwendbar bleibt.
+// Die SVG ist die Quelle; sie wird für jede Grösse einzeln gerastert, statt
+// eine grosse Bitmap herunterzuskalieren. Das hält die kleinen Grössen so
+// scharf, wie es das Motiv zulässt.
 
 import AppKit
-import CoreGraphics
 import Foundation
 
-let size = 1024
-let radius: CGFloat = 224 // macOS-Squircle-Anmutung
-
-guard let context = CGContext(
-    data: nil,
-    width: size,
-    height: size,
-    bitsPerComponent: 8,
-    bytesPerRow: 0,
-    space: CGColorSpace(name: CGColorSpace.sRGB)!,
-    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-) else {
-    fatalError("CGContext konnte nicht erstellt werden")
-}
-
-let full = CGRect(x: 0, y: 0, width: size, height: size)
-
-// Hintergrund: abgerundetes Quadrat mit Verlauf von Tiefblau nach Violett.
-let backgroundPath = CGPath(roundedRect: full, cornerWidth: radius, cornerHeight: radius, transform: nil)
-context.saveGState()
-context.addPath(backgroundPath)
-context.clip()
-
-let gradient = CGGradient(
-    colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
-    colors: [
-        CGColor(red: 0.13, green: 0.16, blue: 0.42, alpha: 1),
-        CGColor(red: 0.42, green: 0.20, blue: 0.58, alpha: 1),
-        CGColor(red: 0.86, green: 0.44, blue: 0.38, alpha: 1),
-    ] as CFArray,
-    locations: [0.0, 0.55, 1.0]
-)!
-context.drawLinearGradient(
-    gradient,
-    start: CGPoint(x: 0, y: size),
-    end: CGPoint(x: size, y: 0),
-    options: []
-)
-
-/// Eine leicht gedrehte Fotokarte.
-func drawCard(rect: CGRect, rotation: CGFloat, fill: CGColor, alpha: CGFloat) {
-    context.saveGState()
-    context.translateBy(x: rect.midX, y: rect.midY)
-    context.rotate(by: rotation)
-    context.translateBy(x: -rect.width / 2, y: -rect.height / 2)
-
-    let card = CGRect(x: 0, y: 0, width: rect.width, height: rect.height)
-    let path = CGPath(roundedRect: card, cornerWidth: 34, cornerHeight: 34, transform: nil)
-
-    context.setShadow(offset: CGSize(width: 0, height: -14), blur: 34, color: CGColor(gray: 0, alpha: 0.35))
-    context.setAlpha(alpha)
-    context.addPath(path)
-    context.setFillColor(fill)
-    context.fillPath()
-    context.setShadow(offset: .zero, blur: 0, color: nil)
-    context.restoreGState()
-}
-
-let cardSize = CGSize(width: 520, height: 400)
-let center = CGRect(
-    x: (CGFloat(size) - cardSize.width) / 2,
-    y: (CGFloat(size) - cardSize.height) / 2,
-    width: cardSize.width,
-    height: cardSize.height
-)
-
-// Zwei Karten im Hintergrund deuten den Stapel an.
-drawCard(rect: center.offsetBy(dx: -46, dy: 62), rotation: 0.14, fill: CGColor(gray: 1, alpha: 1), alpha: 0.45)
-drawCard(rect: center.offsetBy(dx: 40, dy: 30), rotation: -0.07, fill: CGColor(gray: 1, alpha: 1), alpha: 0.7)
-
-// Vordere Karte mit einer kleinen Landschaft: Sonne und zwei Berge.
-context.saveGState()
-let front = center.offsetBy(dx: 0, dy: -26)
-let frontPath = CGPath(roundedRect: front, cornerWidth: 34, cornerHeight: 34, transform: nil)
-context.setShadow(offset: CGSize(width: 0, height: -18), blur: 40, color: CGColor(gray: 0, alpha: 0.45))
-context.addPath(frontPath)
-context.setFillColor(CGColor(red: 0.99, green: 0.98, blue: 0.96, alpha: 1))
-context.fillPath()
-context.setShadow(offset: .zero, blur: 0, color: nil)
-
-context.addPath(frontPath)
-context.clip()
-
-// Himmel
-context.setFillColor(CGColor(red: 0.90, green: 0.94, blue: 0.99, alpha: 1))
-context.fill(front)
-
-// Sonne
-context.setFillColor(CGColor(red: 0.98, green: 0.76, blue: 0.28, alpha: 1))
-context.fillEllipse(in: CGRect(x: front.minX + 96, y: front.maxY - 140, width: 84, height: 84))
-
-// Hinterer Berg
-context.setFillColor(CGColor(red: 0.45, green: 0.55, blue: 0.72, alpha: 1))
-context.beginPath()
-context.move(to: CGPoint(x: front.minX, y: front.minY + 110))
-context.addLine(to: CGPoint(x: front.minX + 200, y: front.minY + 290))
-context.addLine(to: CGPoint(x: front.minX + 380, y: front.minY + 110))
-context.closePath()
-context.fillPath()
-
-// Vorderer Berg
-context.setFillColor(CGColor(red: 0.24, green: 0.36, blue: 0.55, alpha: 1))
-context.beginPath()
-context.move(to: CGPoint(x: front.minX + 150, y: front.minY))
-context.addLine(to: CGPoint(x: front.minX + 340, y: front.minY + 230))
-context.addLine(to: CGPoint(x: front.maxX, y: front.minY))
-context.closePath()
-context.fillPath()
-
-// Wiese
-context.setFillColor(CGColor(red: 0.19, green: 0.30, blue: 0.44, alpha: 1))
-context.fill(CGRect(x: front.minX, y: front.minY, width: front.width, height: 60))
-context.restoreGState()
-
-context.restoreGState()
-
-guard let image = context.makeImage() else { fatalError("Bild konnte nicht gerendert werden") }
-
-// Iconset schreiben und mit iconutil in .icns wandeln.
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+let source = root.appendingPathComponent("Resources/AppIcon.svg")
+
+guard let artwork = NSImage(contentsOf: source) else {
+    FileHandle.standardError.write(Data("AppIcon.svg nicht lesbar: \(source.path)\n".utf8))
+    exit(1)
+}
+
+/// Rastert die Vorlage in genau der gewünschten Kantenlänge.
+func render(_ pixels: Int) -> NSBitmapImageRep? {
+    guard let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: pixels,
+        pixelsHigh: pixels,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else { return nil }
+
+    rep.size = NSSize(width: pixels, height: pixels)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    NSGraphicsContext.current?.imageInterpolation = .high
+    artwork.draw(
+        in: NSRect(x: 0, y: 0, width: pixels, height: pixels),
+        from: .zero,
+        operation: .sourceOver,
+        fraction: 1
+    )
+    NSGraphicsContext.restoreGraphicsState()
+    return rep
+}
+
 let iconset = root.appendingPathComponent("build/AppIcon.iconset")
 try? FileManager.default.removeItem(at: iconset)
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
@@ -143,26 +60,10 @@ let variants: [(String, Int)] = [
 ]
 
 for (name, pixels) in variants {
-    let rep = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: pixels,
-        pixelsHigh: pixels,
-        bitsPerSample: 8,
-        samplesPerPixel: 4,
-        hasAlpha: true,
-        isPlanar: false,
-        colorSpaceName: .deviceRGB,
-        bytesPerRow: 0,
-        bitsPerPixel: 0
-    )!
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    NSGraphicsContext.current?.imageInterpolation = .high
-    NSImage(cgImage: image, size: NSSize(width: pixels, height: pixels))
-        .draw(in: NSRect(x: 0, y: 0, width: pixels, height: pixels))
-    NSGraphicsContext.restoreGraphicsState()
-
-    guard let png = rep.representation(using: .png, properties: [:]) else { continue }
+    guard let rep = render(pixels), let png = rep.representation(using: .png, properties: [:]) else {
+        FileHandle.standardError.write(Data("Konnte \(name) nicht rendern\n".utf8))
+        exit(1)
+    }
     try png.write(to: iconset.appendingPathComponent("\(name).png"))
 }
 
@@ -173,6 +74,7 @@ try process.run()
 process.waitUntilExit()
 
 guard process.terminationStatus == 0 else {
-    fatalError("iconutil ist fehlgeschlagen")
+    FileHandle.standardError.write(Data("iconutil ist fehlgeschlagen\n".utf8))
+    exit(1)
 }
-print("Resources/AppIcon.icns geschrieben")
+print("Resources/AppIcon.icns aus AppIcon.svg erzeugt (\(variants.count) Grössen)")
