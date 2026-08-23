@@ -20,11 +20,33 @@ jobs:
       - name: Install libwebp
         run: brew install webp
 
+      - name: Install dmgbuild
+        # Schreibt das Fenster-Layout direkt ins .DS_Store. Über den Finder ginge
+        # es hier nicht: auf dem Runner läuft keiner.
+        run: pipx install dmgbuild
+
       - name: Test
         run: swift test
 
       - name: Build DMG
         run: ./scripts/make-dmg.sh
+
+      - name: Sign update and write appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY fehlt. Ohne Signatur lehnt Sparkle jedes Update ab."
+            exit 1
+          fi
+          # Der Schlüssel liegt nur für diesen Schritt auf der Platte.
+          KEYFILE="$(mktemp)"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEYFILE"
+          trap 'rm -f "$KEYFILE"' EXIT
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -z "$VERSION" ] && VERSION="${{ github.event.inputs.version }}"
+          ./scripts/make-appcast.sh "dist/Lumina-$VERSION.dmg" "$KEYFILE"
 
       - name: Collect release notes
         id: notes
@@ -71,6 +93,10 @@ NOTE
       - name: Publish
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.dmg
+          # Der Feed muss mit ins Release: die App fragt ihn unter
+          # releases/latest/download/appcast.xml ab.
+          files: |
+            dist/*.dmg
+            dist/appcast.xml
           body_path: release-notes.md
           name: Lumina ${{ steps.notes.outputs.version }}

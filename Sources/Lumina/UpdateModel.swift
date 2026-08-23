@@ -1,25 +1,32 @@
 import AppKit
 import Foundation
 import LuminaCore
+import Sparkle
 import SwiftUI
 
-/// Zustand der Update-Suche.
+/// Bindeglied zwischen Sparkle und der Oberfläche.
+///
+/// Sparkle übernimmt Download, Prüfung der EdDSA-Signatur, den Austausch des
+/// Bundles und den Neustart. Selbst gebaut wäre jeder dieser Schritte eine
+/// Sicherheitslücke in Wartung: eine laufende App kann sich nicht selbst ersetzen,
+/// und ohne Signaturprüfung wird der Update-Weg zum Einfallstor.
 @MainActor
-final class UpdateModel: ObservableObject {
-    enum Phase: Equatable {
-        case never
-        case checking
+final class UpdateModel: NSObject, ObservableObject {
+    /// Ob gerade nach Updates gesucht werden kann. Während einer laufenden Suche
+    /// oder Installation sperrt Sparkle die Aktion.
+    @Published private(set) var canCheck = true
+    /// Letzte Rückmeldung für die Anzeige im Einstellungen-Fenster.
+    @Published private(set) var lastResult: Result?
+
+    enum Result: Equatable {
         case upToDate(Date)
-        case available(ReleaseInfo)
+        case found(String)
         case failed(String)
     }
 
-    @Published private(set) var phase: Phase = .never
+    private var controller: SPUStandardUpdaterController?
+    private var observation: NSKeyValueObservation?
 
-    static let owner = "benjaminmue"
-    static let repo = "lumina"
-
-    /// Installierte Version aus dem Bundle.
     static var installedVersion: SemanticVersion {
         let string = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
         return SemanticVersion(string) ?? SemanticVersion(major: 0, minor: 0, patch: 0)
@@ -29,39 +36,51 @@ final class UpdateModel: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
     }
 
-    init(preferences: AppPreferences) {
-        if let last = preferences.lastUpdateCheck {
-            phase = .upToDate(last)
+    override init() {
+        super.init()
+        // startingUpdater: true lässt Sparkle die geplante Suche selbst übernehmen.
+        // Der Rhythmus steht in der Info.plist (SUScheduledCheckInterval).
+        controller = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: self,
+            userDriverDelegate: nil
+        )
+        observation = controller?.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
+            Task { @MainActor in self?.canCheck = updater.canCheckForUpdates }
         }
     }
 
-    /// Sucht nach einer neueren Version.
-    ///
-    /// - Parameter preferences: wird für Zeitstempel und übersprungene Version
-    ///   gelesen und geschrieben.
-    func check(preferences: Binding<AppPreferences>) async {
-        phase = .checking
-
-        let result = await UpdateChecker.latestRelease(owner: Self.owner, repo: Self.repo)
-        let now = Date()
-        preferences.wrappedValue.lastUpdateCheck = now
-
-        switch result {
-        case .success(let release):
-            // Eine übersprungene Version bleibt still, bis eine neuere erscheint.
-            if preferences.wrappedValue.shouldAnnounce(release.version, current: Self.installedVersion) {
-                phase = .available(release)
-            } else {
-                phase = .upToDate(now)
-            }
-        case .failure(let error):
-            phase = .failed(error.localizedDescription ?? String(localized: "Check failed."))
-        }
+    /// Ob Sparkle beim Start automatisch suchen soll.
+    var automaticallyChecks: Bool {
+        get { controller?.updater.automaticallyChecksForUpdates ?? false }
+        set { controller?.updater.automaticallyChecksForUpdates = newValue }
     }
 
-    /// Meldet diese Version nicht mehr.
-    func skip(_ release: ReleaseInfo, preferences: Binding<AppPreferences>) {
-        preferences.wrappedValue.skippedVersion = release.version.description
-        phase = .upToDate(Date())
+    var lastCheckDate: Date? { controller?.updater.lastUpdateCheckDate }
+
+    /// Sucht auf Wunsch des Benutzers. Findet Sparkle etwas, zeigt es selbst den
+    /// Dialog mit "Jetzt installieren", "Beim Beenden" und "Später".
+    func checkNow() {
+        lastResult = nil
+        controller?.checkForUpdates(nil)
+    }
+}
+
+extension UpdateModel: SPUUpdaterDelegate {
+    nonisolated func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        let version = item.displayVersionString
+        Task { @MainActor in lastResult = .found(version) }
+    }
+
+    nonisolated func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        Task { @MainActor in lastResult = .upToDate(Date()) }
+    }
+
+    nonisolated func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        // Abbruch durch den Benutzer ist kein Fehler und gehört nicht gemeldet.
+        let cancelled = (error as NSError).code == Int(Sparkle.SUError.installationCanceledError.rawValue)
+        guard !cancelled else { return }
+        let message = error.localizedDescription
+        Task { @MainActor in lastResult = .failed(message) }
     }
 }

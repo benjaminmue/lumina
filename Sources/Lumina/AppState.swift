@@ -48,8 +48,6 @@ final class AppState: ObservableObject {
     /// Startposition der Slideshow, bezogen auf `playableItems`.
     @Published private(set) var presentIndex = 0
     @Published var errorMessage: LocalizedStringResource?
-    /// Gefundene neuere Version. Wird in der Statuszeile dezent gemeldet.
-    @Published var availableUpdate: ReleaseInfo?
 
     /// Vollbild-Bilder und Vorschaukacheln haben getrennte Caches, damit die
     /// vielen kleinen Thumbnails die grossen Bilder nicht aus dem Speicher drängen.
@@ -180,27 +178,6 @@ final class AppState: ObservableObject {
         enabled = []
         defaults.removeObject(forKey: Keys.sources)
         Task { await loader.clearCache() }
-    }
-
-    // MARK: - Aktualisierung
-
-    /// Sucht beim Start nach einer neueren Version, sofern eingeschaltet und fällig.
-    ///
-    /// Bewusst leise: gefunden wird höchstens ein Hinweis in der Statuszeile, kein Dialog.
-    func checkForUpdatesIfDue() async {
-        guard preferences.isUpdateCheckDue() else { return }
-
-        let result = await UpdateChecker.latestRelease(owner: "benjaminmue", repo: "lumina")
-        preferences.lastUpdateCheck = Date()
-
-        guard case .success(let release) = result else { return }
-        let installed = SemanticVersion(
-            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-        ) ?? SemanticVersion(major: 0, minor: 0, patch: 0)
-
-        if preferences.shouldAnnounce(release.version, current: installed) {
-            availableUpdate = release
-        }
     }
 
     // MARK: - Wiedergabe

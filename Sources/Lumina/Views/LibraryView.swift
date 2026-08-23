@@ -197,15 +197,6 @@ struct LibraryView: View {
 
             Spacer()
 
-            // Gefundene Aktualisierung: ein Hinweis, kein Dialog.
-            if let update = app.availableUpdate {
-                Link(destination: update.pageURL) {
-                    Label("Version \(update.version.description) available", systemImage: "arrow.down.circle")
-                }
-                .font(.caption)
-                Text("·").foregroundStyle(.tertiary)
-            }
-
             runtimeLabel
                 .foregroundStyle(.secondary)
         }

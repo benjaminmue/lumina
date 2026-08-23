@@ -4,6 +4,12 @@ import PackageDescription
 let package = Package(
     name: "Lumina",
     platforms: [.macOS(.v14)],
+    dependencies: [
+        // Sparkle übernimmt Download, Signaturprüfung, den Austausch des Bundles
+        // und den Neustart. Selbst gebaut wäre jeder dieser Schritte eine
+        // Sicherheitslücke in Wartung.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+    ],
     targets: [
         // libwebp aus Homebrew. Apples ImageIO dekodiert animierte WebP nur wahlfrei
         // und damit quadratisch langsam (gemessen 280 ms je Frame gegenüber 1.5 ms hier).
@@ -21,7 +27,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "Lumina",
-            dependencies: ["LuminaCore"],
+            dependencies: [
+                "LuminaCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             path: "Sources/Lumina",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

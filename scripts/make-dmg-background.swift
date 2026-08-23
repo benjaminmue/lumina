@@ -11,8 +11,10 @@ import Foundation
 
 // Fenstermass des DMG. Die Icons setzt das Skript make-dmg.sh an dieselben Stellen.
 let width = 660.0
-let height = 420.0
-let scale = 2.0
+let height = 470.0
+// Ohne Retina-Verdopplung und ohne Alpha: der Finder zeigt das Bild sonst gar
+// nicht. Er erwartet ein deckendes Bild in exakt der Fenstergrösse.
+let scale = 1.0
 
 let context = CGContext(
     data: nil,
@@ -21,7 +23,7 @@ let context = CGContext(
     bitsPerComponent: 8,
     bytesPerRow: 0,
     space: CGColorSpace(name: CGColorSpace.sRGB)!,
-    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
 )!
 context.scaleBy(x: scale, y: scale)
 
@@ -62,8 +64,8 @@ context.drawRadialGradient(
     options: []
 )
 
-// Pfeil zwischen den beiden Icon-Positionen (bei y = 232 im Finder-Koordinatensystem).
-let arrowY = height - 232.0
+// Pfeil zwischen den beiden Icon-Positionen (bei y = 190 im Finder-Koordinatensystem).
+let arrowY = height - 190.0
 let arrowStart = 258.0
 let arrowEnd = 402.0
 let shaftHeight = 10.0
@@ -101,17 +103,19 @@ func draw(_ text: String, at point: CGPoint, size: CGFloat, weight: NSFont.Weigh
 }
 
 draw("Drag Lumina into Applications",
-     at: CGPoint(x: width / 2, y: height - 96), size: 19, weight: .medium,
+     at: CGPoint(x: width / 2, y: height - 76), size: 19, weight: .medium,
      color: NSColor(white: 1, alpha: 0.92))
 
-// Der Hinweis auf die Gatekeeper-Meldung gehört genau hierhin: er wird gebraucht,
-// bevor jemand die Textdatei öffnet.
-draw("First launch is blocked by macOS. Open System Settings, Privacy & Security,",
-     at: CGPoint(x: width / 2, y: 58), size: 12, weight: .regular,
-     color: NSColor(white: 1, alpha: 0.5))
-draw("scroll to Security and click Open Anyway. Details in Read me first.txt",
-     at: CGPoint(x: width / 2, y: 38), size: 12, weight: .regular,
-     color: NSColor(white: 1, alpha: 0.5))
+// Der Hinweis auf die Gatekeeper-Meldung steht rechts neben dem Datei-Icon,
+// nicht darunter: sonst deckt das Icon den Text ab, den es erklärt.
+draw("macOS blocks the first launch.", at: CGPoint(x: 230, y: 168), size: 13,
+     weight: .medium, color: NSColor(white: 1, alpha: 0.72), centered: false)
+draw("System Settings, Privacy & Security,", at: CGPoint(x: 230, y: 144), size: 12,
+     weight: .regular, color: NSColor(white: 1, alpha: 0.5), centered: false)
+draw("scroll down, click Open Anyway.", at: CGPoint(x: 230, y: 124), size: 12,
+     weight: .regular, color: NSColor(white: 1, alpha: 0.5), centered: false)
+draw("Steps and terminal command:", at: CGPoint(x: 230, y: 96), size: 12,
+     weight: .regular, color: NSColor(white: 1, alpha: 0.38), centered: false)
 
 let rep = NSBitmapImageRep(cgImage: context.makeImage()!)
 rep.size = NSSize(width: width, height: height)

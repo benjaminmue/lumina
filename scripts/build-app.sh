@@ -51,6 +51,29 @@ echo "    $LANG_COUNT Sprachen"
 
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# Sparkle mitliefern. Ohne das Framework im Bundle startet die App gar nicht,
+# der Loader sucht es unter @rpath/Sparkle.framework.
+echo "==> Bette Sparkle ein"
+SPARKLE_FW="$(find "$ROOT/.build/artifacts" -maxdepth 6 -type d -name "Sparkle.framework" 2>/dev/null | head -1)"
+if [[ -n "$SPARKLE_FW" ]]; then
+    mkdir -p "$APP/Contents/Frameworks"
+    rm -rf "$APP/Contents/Frameworks/Sparkle.framework"
+    cp -R "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
+
+    # Von innen nach aussen signieren: die eingebetteten Dienste zuerst, sonst
+    # bricht die Signatur des Frameworks beim nächsten Schritt wieder auf.
+    SPARKLE_IN_APP="$APP/Contents/Frameworks/Sparkle.framework"
+    for service in "$SPARKLE_IN_APP/Versions/B/XPCServices/"*.xpc; do
+        [[ -d "$service" ]] && codesign --force --sign - --timestamp=none "$service"
+    done
+    for helper in "$SPARKLE_IN_APP/Versions/B/Updater.app" "$SPARKLE_IN_APP/Versions/B/Autoupdate"; do
+        [[ -e "$helper" ]] && codesign --force --sign - --timestamp=none "$helper"
+    done
+    codesign --force --sign - --timestamp=none "$SPARKLE_IN_APP"
+else
+    echo "Warnung: Sparkle.framework nicht gefunden, die App wird nicht starten"
+fi
+
 # libwebp mitliefern, damit die App unabhängig von Homebrew startet.
 echo "==> Bette libwebp ein"
 FRAMEWORKS="$APP/Contents/Frameworks"

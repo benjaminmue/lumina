@@ -122,98 +122,70 @@ private struct PlaybackPane: View {
 
 private struct UpdatePane: View {
     @EnvironmentObject private var app: AppState
-    @StateObject private var model: UpdateModel
-
-    init() {
-        // Der Zustand startet mit dem gespeicherten Prüfzeitpunkt, damit der
-        // Bereich beim Öffnen nicht so aussieht, als sei nie gesucht worden.
-        _model = StateObject(wrappedValue: UpdateModel(preferences: AppState.loadPreferences()))
-    }
+    @StateObject private var model = UpdateModel()
+    @State private var automatic = true
 
     var body: some View {
         Form {
             Section {
-                switch model.phase {
-                case .never:
-                    status("Never checked for updates.", systemImage: "questionmark.circle", tint: .secondary)
-                    Button("Check now") { Task { await model.check(preferences: $app.preferences) } }
+                LabeledContent("Installed") {
+                    Text(UpdateModel.installedVersion.description)
+                        .foregroundStyle(.secondary)
+                }
 
-                case .checking:
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text("Checking for updates …")
-                    }
-
-                case .upToDate(let date):
-                    status(
-                        "Lumina \(UpdateModel.installedVersion.description) is up to date.",
-                        systemImage: "checkmark.circle.fill",
-                        tint: .green
-                    )
+                if let date = model.lastCheckDate {
                     LabeledContent("Last checked") {
                         Text(date.formatted(.relative(presentation: .named)))
                             .foregroundStyle(.secondary)
                     }
-                    Button("Check again") { Task { await model.check(preferences: $app.preferences) } }
+                }
 
-                case .available(let release):
-                    status(
-                        "Version \(release.version.description) is available.",
-                        systemImage: "arrow.down.circle.fill",
-                        tint: .accentColor
-                    )
-                    LabeledContent("Installed") {
-                        Text(UpdateModel.installedVersion.description).foregroundStyle(.secondary)
+                // Sparkle bringt seinen eigenen Dialog mit: installieren, beim
+                // Beenden installieren oder später erinnern. Hier steht nur das
+                // Ergebnis der letzten Suche.
+                switch model.lastResult {
+                case .some(.upToDate):
+                    Label {
+                        Text("Lumina \(UpdateModel.installedVersion.description) is up to date.")
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                     }
-
-                    if let notes = release.notes {
-                        ScrollView {
-                            Text(notes)
-                                .font(.callout)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                        }
-                        .frame(maxHeight: 150)
+                case .some(.found(let version)):
+                    Label {
+                        Text("Version \(version) is available.")
+                    } icon: {
+                        Image(systemName: "arrow.down.circle.fill").foregroundStyle(Color.accentColor)
                     }
-
-                    HStack {
-                        Button("Open download page") {
-                            NSWorkspace.shared.open(release.downloadURL ?? release.pageURL)
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Button("Skip this version") {
-                            model.skip(release, preferences: $app.preferences)
-                        }
+                case .some(.failed(let reason)):
+                    Label {
+                        Text("Check failed.")
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                     }
-
-                case .failed(let reason):
-                    status("Check failed.", systemImage: "exclamationmark.triangle.fill", tint: .orange)
                     Text(reason)
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                    Button("Try again") { Task { await model.check(preferences: $app.preferences) } }
+                case .none:
+                    EmptyView()
                 }
+
+                Button("Check for updates") { model.checkNow() }
+                    .disabled(!model.canCheck)
             }
 
             Section {
-                Toggle("Check at launch, at most once a week", isOn: $app.preferences.checkForUpdates)
+                Toggle("Check automatically", isOn: $automatic)
+                    .onChange(of: automatic) { _, newValue in
+                        model.automaticallyChecks = newValue
+                    }
             } footer: {
-                Text("Asks the releases page on GitHub. This is the only network access the app makes.")
+                Text("Updates install themselves from inside the app. Asks the releases page on GitHub, which is the only network access the app makes.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-    }
-
-    private func status(_ text: String, systemImage: String, tint: Color) -> some View {
-        Label {
-            Text(text)
-        } icon: {
-            Image(systemName: systemImage).foregroundStyle(tint)
-        }
-        .font(.body.weight(.medium))
+        .task { automatic = model.automaticallyChecks }
     }
 }
 

@@ -38,3 +38,13 @@ jobs:
           fi
           codesign --verify --strict dist/Lumina.app
           lipo -archs dist/Lumina.app/Contents/MacOS/Lumina
+
+          # Ohne Sparkle.framework im Bundle startet die App nicht einmal.
+          test -d dist/Lumina.app/Contents/Frameworks/Sparkle.framework \
+            || { echo "Sparkle.framework fehlt im Bundle"; exit 1; }
+
+          # Alle Sprachen müssen mitkommen.
+          for lang in en de fr it es ja; do
+            test -f "dist/Lumina.app/Contents/Resources/$lang.lproj/Localizable.strings" \
+              || { echo "Sprachdatei $lang fehlt"; exit 1; }
+          done

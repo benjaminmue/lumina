@@ -14,7 +14,6 @@ struct LuminaApp: App {
                     if app.preferences.restoreSession {
                         await app.reload()
                     }
-                    await app.checkForUpdatesIfDue()
                 }
         }
         .defaultSize(width: 1100, height: 720)
