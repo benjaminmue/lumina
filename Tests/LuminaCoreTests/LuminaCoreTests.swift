@@ -621,3 +621,228 @@ final class KenBurnsCoverageTests: XCTestCase {
         }
     }
 }
+
+final class SemanticVersionTests: XCTestCase {
+
+    func testParsesPlainAndPrefixedVersions() {
+        XCTAssertEqual(SemanticVersion("1.2.3"), SemanticVersion(major: 1, minor: 2, patch: 3))
+        XCTAssertEqual(SemanticVersion("v1.2.3"), SemanticVersion(major: 1, minor: 2, patch: 3))
+        XCTAssertEqual(SemanticVersion("V2.0.0"), SemanticVersion(major: 2, minor: 0, patch: 0))
+    }
+
+    func testFillsMissingComponents() {
+        XCTAssertEqual(SemanticVersion("1.2"), SemanticVersion(major: 1, minor: 2, patch: 0))
+        XCTAssertEqual(SemanticVersion("3"), SemanticVersion(major: 3, minor: 0, patch: 0))
+    }
+
+    func testStripsPrereleaseAndBuildMetadata() {
+        XCTAssertEqual(SemanticVersion("1.4.0-beta.2"), SemanticVersion(major: 1, minor: 4, patch: 0))
+        XCTAssertEqual(SemanticVersion("1.4.0+build77"), SemanticVersion(major: 1, minor: 4, patch: 0))
+    }
+
+    func testRejectsGarbage() {
+        XCTAssertNil(SemanticVersion(""))
+        XCTAssertNil(SemanticVersion("latest"))
+        XCTAssertNil(SemanticVersion("1.2.3.4"))
+        XCTAssertNil(SemanticVersion("-1.0.0"))
+    }
+
+    /// Der Grund für den eigenen Typ: als Zeichenkette verglichen wäre 1.10.0 kleiner als 1.9.0.
+    func testOrdersNumericallyNotAlphabetically() {
+        XCTAssertTrue(SemanticVersion("1.9.0")! < SemanticVersion("1.10.0")!)
+        XCTAssertTrue(SemanticVersion("1.2.9")! < SemanticVersion("1.3.0")!)
+        XCTAssertTrue(SemanticVersion("2.0.0")! > SemanticVersion("1.99.99")!)
+        XCTAssertEqual(SemanticVersion("1.2.0"), SemanticVersion("v1.2.0"))
+    }
+
+    func testDescriptionIsNormalised() {
+        XCTAssertEqual(SemanticVersion("v1.2")!.description, "1.2.0")
+    }
+}
+
+final class UpdateCheckerParsingTests: XCTestCase {
+
+    private let sample = """
+    {
+      "tag_name": "v1.3.0",
+      "html_url": "https://github.com/benjaminmue/lumina/releases/tag/v1.3.0",
+      "published_at": "2026-08-23T19:30:00Z",
+      "body": "Neue Übergänge",
+      "assets": [
+        {"name": "source.zip", "browser_download_url": "https://example.com/source.zip"},
+        {"name": "Lumina-1.3.0.dmg", "browser_download_url": "https://example.com/Lumina-1.3.0.dmg"}
+      ]
+    }
+    """.data(using: .utf8)!
+
+    func testParsesRelease() throws {
+        let info = try XCTUnwrap(UpdateChecker.parse(sample))
+        XCTAssertEqual(info.version, SemanticVersion(major: 1, minor: 3, patch: 0))
+        XCTAssertEqual(info.tag, "v1.3.0")
+        XCTAssertEqual(info.notes, "Neue Übergänge")
+        XCTAssertNotNil(info.publishedAt)
+    }
+
+    /// Von mehreren Anhängseln ist nur das Disk-Image interessant.
+    func testPicksTheDiskImageAsset() throws {
+        let info = try XCTUnwrap(UpdateChecker.parse(sample))
+        XCTAssertEqual(info.downloadURL?.lastPathComponent, "Lumina-1.3.0.dmg")
+    }
+
+    func testReleaseWithoutAssetsStillParses() throws {
+        let json = """
+        {"tag_name": "v1.0.0", "html_url": "https://example.com/r", "assets": []}
+        """.data(using: .utf8)!
+        let info = try XCTUnwrap(UpdateChecker.parse(json))
+        XCTAssertNil(info.downloadURL)
+        XCTAssertNil(info.notes)
+    }
+
+    func testRejectsUnusableResponses() {
+        XCTAssertNil(UpdateChecker.parse(Data("nicht json".utf8)))
+        // Ohne brauchbaren Tag ist die Antwort wertlos.
+        XCTAssertNil(UpdateChecker.parse(Data(#"{"tag_name": "nightly", "html_url": "https://x.y"}"#.utf8)))
+        XCTAssertNil(UpdateChecker.parse(Data(#"{"html_url": "https://x.y"}"#.utf8)))
+    }
+}
+
+final class AppPreferencesTests: XCTestCase {
+
+    func testDecodingToleratesMissingFields() throws {
+        let json = Data(#"{"preventSleep": false}"#.utf8)
+        let prefs = try JSONDecoder().decode(AppPreferences.self, from: json)
+        XCTAssertFalse(prefs.preventSleep)
+        XCTAssertEqual(prefs.restoreSession, AppPreferences().restoreSession)
+        XCTAssertEqual(prefs.cursorHideDelay, AppPreferences().cursorHideDelay)
+    }
+
+    func testSanitizeClampsCursorDelay() {
+        var prefs = AppPreferences()
+        prefs.cursorHideDelay = 99
+        XCTAssertEqual(prefs.sanitized().cursorHideDelay, AppPreferences.cursorDelayRange.upperBound)
+
+        prefs.cursorHideDelay = 0
+        XCTAssertEqual(prefs.sanitized().cursorHideDelay, AppPreferences.cursorDelayRange.lowerBound)
+    }
+
+    func testUpdateCheckIsDueOnlyOncePerInterval() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        var prefs = AppPreferences()
+
+        // Noch nie gesucht.
+        XCTAssertTrue(prefs.isUpdateCheckDue(now: now))
+
+        prefs.lastUpdateCheck = now.addingTimeInterval(-3600)
+        XCTAssertFalse(prefs.isUpdateCheckDue(now: now))
+
+        prefs.lastUpdateCheck = now.addingTimeInterval(-8 * 24 * 3600)
+        XCTAssertTrue(prefs.isUpdateCheckDue(now: now))
+    }
+
+    func testUpdateCheckRespectsTheToggle() {
+        var prefs = AppPreferences()
+        prefs.checkForUpdates = false
+        XCTAssertFalse(prefs.isUpdateCheckDue(now: Date()))
+    }
+
+    /// Eine zurückgestellte Uhr darf die Suche nicht dauerhaft blockieren.
+    func testFutureTimestampDoesNotBlockForever() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        var prefs = AppPreferences()
+        prefs.lastUpdateCheck = now.addingTimeInterval(5 * 24 * 3600)
+        XCTAssertTrue(prefs.isUpdateCheckDue(now: now))
+    }
+
+    func testSkippedVersionSilencesOnlyThatVersion() {
+        let current = SemanticVersion("1.2.0")!
+        var prefs = AppPreferences()
+        prefs.skippedVersion = "1.3.0"
+
+        XCTAssertFalse(prefs.shouldAnnounce(SemanticVersion("1.3.0")!, current: current))
+        // Die nächste Version meldet sich wieder.
+        XCTAssertTrue(prefs.shouldAnnounce(SemanticVersion("1.4.0")!, current: current))
+        // Ältere oder gleiche Versionen nie.
+        XCTAssertFalse(prefs.shouldAnnounce(SemanticVersion("1.2.0")!, current: current))
+        XCTAssertFalse(prefs.shouldAnnounce(SemanticVersion("1.1.0")!, current: current))
+    }
+
+    func testAnnouncesWhenNothingSkipped() {
+        let prefs = AppPreferences()
+        XCTAssertTrue(prefs.shouldAnnounce(SemanticVersion("2.0.0")!, current: SemanticVersion("1.2.0")!))
+    }
+}
+
+final class AppLanguageTests: XCTestCase {
+
+    func testMatchesPlainCodes() {
+        XCTAssertEqual(AppLanguage.matching("de"), .german)
+        XCTAssertEqual(AppLanguage.matching("ja"), .japanese)
+        XCTAssertEqual(AppLanguage.matching("EN"), .english)
+    }
+
+    /// Systeme melden fast nie den nackten Code, sondern Region oder Schriftsystem dazu.
+    func testMatchesRegionalAndScriptedCodes() {
+        XCTAssertEqual(AppLanguage.matching("de-CH"), .german)
+        XCTAssertEqual(AppLanguage.matching("de_AT"), .german)
+        XCTAssertEqual(AppLanguage.matching("es-419"), .spanish)
+        XCTAssertEqual(AppLanguage.matching("fr-CA"), .french)
+    }
+
+    func testRejectsUnsupported() {
+        XCTAssertNil(AppLanguage.matching("pt-BR"))
+        XCTAssertNil(AppLanguage.matching("zh-Hans-CN"))
+        XCTAssertNil(AppLanguage.matching(""))
+    }
+
+    func testPicksFirstSupportedFromSystemList() {
+        // Portugiesisch fehlt, Italienisch kommt danach und gewinnt.
+        XCTAssertEqual(AppLanguage.fromSystem(preferred: ["pt-BR", "it-IT", "de"]), .italian)
+        XCTAssertNil(AppLanguage.fromSystem(preferred: ["pt-BR", "ko-KR"]))
+    }
+
+    func testEveryLanguageHasItsOwnEndonym() {
+        let names = Set(AppLanguage.allCases.map(\.endonym))
+        XCTAssertEqual(names.count, AppLanguage.allCases.count)
+        XCTAssertEqual(AppLanguage.japanese.endonym, "日本語")
+    }
+}
+
+final class LanguagePreferenceTests: XCTestCase {
+
+    func testFollowsSystemWithoutOwnChoice() {
+        let prefs = AppPreferences()
+        XCTAssertEqual(prefs.effectiveLanguage(systemPreferred: ["fr-CH"]), .french)
+        // Unbekannte Systemsprache landet bei Englisch.
+        XCTAssertEqual(prefs.effectiveLanguage(systemPreferred: ["ko-KR"]), .english)
+    }
+
+    func testOwnChoiceBeatsSystem() {
+        var prefs = AppPreferences()
+        prefs.language = .japanese
+        XCTAssertEqual(prefs.effectiveLanguage(systemPreferred: ["de-CH"]), .japanese)
+    }
+
+    /// Wer eine unterstützte Systemsprache hat, soll nie gefragt werden.
+    func testNoPromptWhenSystemLanguageIsAvailable() {
+        let prefs = AppPreferences()
+        XCTAssertFalse(prefs.needsLanguagePrompt(systemPreferred: ["de-CH"]))
+        XCTAssertFalse(prefs.needsLanguagePrompt(systemPreferred: ["ja"]))
+    }
+
+    func testPromptsOnlyForUnsupportedSystemLanguage() {
+        let prefs = AppPreferences()
+        XCTAssertTrue(prefs.needsLanguagePrompt(systemPreferred: ["pt-BR"]))
+    }
+
+    func testNeverPromptsTwice() {
+        var prefs = AppPreferences()
+        prefs.didAskForLanguage = true
+        XCTAssertFalse(prefs.needsLanguagePrompt(systemPreferred: ["pt-BR"]))
+    }
+
+    func testNoPromptOnceALanguageWasChosen() {
+        var prefs = AppPreferences()
+        prefs.language = .english
+        XCTAssertFalse(prefs.needsLanguagePrompt(systemPreferred: ["pt-BR"]))
+    }
+}

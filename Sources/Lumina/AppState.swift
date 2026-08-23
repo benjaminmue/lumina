@@ -12,10 +12,17 @@ final class AppState: ObservableObject {
     private enum Keys {
         static let config = "lumina.config"
         static let sources = "lumina.sources"
+        static let preferences = "lumina.preferences"
     }
 
     @Published var config: SlideshowConfig {
         didSet { persistConfig() }
+    }
+
+    /// App-Einstellungen, getrennt von den Show-Parametern: eine Vorlage
+    /// überschreibt `config` komplett und dürfte diese Werte nicht mitreissen.
+    @Published var preferences: AppPreferences {
+        didSet { persistPreferences() }
     }
 
     /// Alle importierten Bilder in Anzeigereihenfolge.
@@ -40,7 +47,9 @@ final class AppState: ObservableObject {
     @Published private(set) var isPresenting = false
     /// Startposition der Slideshow, bezogen auf `playableItems`.
     @Published private(set) var presentIndex = 0
-    @Published var errorMessage: String?
+    @Published var errorMessage: LocalizedStringResource?
+    /// Gefundene neuere Version. Wird in der Statuszeile dezent gemeldet.
+    @Published var availableUpdate: ReleaseInfo?
 
     /// Vollbild-Bilder und Vorschaukacheln haben getrennte Caches, damit die
     /// vielen kleinen Thumbnails die grossen Bilder nicht aus dem Speicher drängen.
@@ -65,8 +74,21 @@ final class AppState: ObservableObject {
         } else {
             self.config = SlideshowConfig()
         }
+        self.preferences = Self.loadPreferences(from: defaults)
+
         if let paths = defaults.array(forKey: Keys.sources) as? [String] {
             self.sources = paths.map { URL(fileURLWithPath: $0) }
+        }
+    }
+
+    /// Liest die Einstellungen, ohne eine Instanz zu brauchen.
+    static func loadPreferences(from defaults: UserDefaults = .standard) -> AppPreferences {
+        guard let data = defaults.data(forKey: Keys.preferences) else { return AppPreferences() }
+        do {
+            return try JSONDecoder().decode(AppPreferences.self, from: data).sanitized()
+        } catch {
+            stateLog.error("Einstellungen unlesbar, Standardwerte aktiv: \(error.localizedDescription, privacy: .public)")
+            return AppPreferences()
         }
     }
 
@@ -107,7 +129,7 @@ final class AppState: ObservableObject {
         await replaceSources(with: merged)
     }
 
-    /// Liest alle Quellen neu ein - etwa nach dem Umschalten von "Unterordner einbeziehen".
+    /// Liest alle Quellen neu ein - etwa nach dem Umschalten von "Include subfolders".
     func reload() async {
         guard !sources.isEmpty else {
             items = []
@@ -118,7 +140,7 @@ final class AppState: ObservableObject {
         defer { isImporting = false }
 
         let urls = sources
-        let recursive = config.recursiveImport
+        let recursive = preferences.recursiveImport
         let order = config.sortOrder
         let ascending = config.ascending
         let seed = shuffleSeed
@@ -137,7 +159,7 @@ final class AppState: ObservableObject {
         enabled = stillEnabled.union(freshlyAdded)
 
         if found.isEmpty {
-            errorMessage = "In der Auswahl wurden keine unterstützten Bilddateien gefunden."
+            errorMessage = "No supported image files were found in that selection."
         }
     }
 
@@ -158,6 +180,27 @@ final class AppState: ObservableObject {
         enabled = []
         defaults.removeObject(forKey: Keys.sources)
         Task { await loader.clearCache() }
+    }
+
+    // MARK: - Aktualisierung
+
+    /// Sucht beim Start nach einer neueren Version, sofern eingeschaltet und fällig.
+    ///
+    /// Bewusst leise: gefunden wird höchstens ein Hinweis in der Statuszeile, kein Dialog.
+    func checkForUpdatesIfDue() async {
+        guard preferences.isUpdateCheckDue() else { return }
+
+        let result = await UpdateChecker.latestRelease(owner: "benjaminmue", repo: "lumina")
+        preferences.lastUpdateCheck = Date()
+
+        guard case .success(let release) = result else { return }
+        let installed = SemanticVersion(
+            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+        ) ?? SemanticVersion(major: 0, minor: 0, patch: 0)
+
+        if preferences.shouldAnnounce(release.version, current: installed) {
+            availableUpdate = release
+        }
     }
 
     // MARK: - Wiedergabe
@@ -297,6 +340,14 @@ final class AppState: ObservableObject {
     }
 
     // MARK: - Persistenz
+
+    private func persistPreferences() {
+        do {
+            defaults.set(try JSONEncoder().encode(preferences), forKey: Keys.preferences)
+        } catch {
+            stateLog.error("Einstellungen nicht gespeichert: \(error.localizedDescription, privacy: .public)")
+        }
+    }
 
     private func persistConfig() {
         do {

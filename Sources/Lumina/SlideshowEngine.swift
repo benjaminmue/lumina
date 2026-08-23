@@ -54,7 +54,7 @@ final class SlideshowEngine: ObservableObject {
     @Published private(set) var sequence: SlideshowSequence
     @Published private(set) var isPaused = false
     /// Gesetzt, wenn keine einzige Datei gelesen werden konnte.
-    @Published private(set) var loadFailure: String?
+    @Published private(set) var loadFailure: LocalizedStringResource?
     /// Fortschritt der aktuellen Standzeit, 0...1.
     @Published private(set) var progress: Double = 0
     /// Wird gesetzt, wenn ohne Loop das letzte Bild gezeigt wurde.
@@ -74,14 +74,22 @@ final class SlideshowEngine: ObservableObject {
 
     private let loader: ImageLoader
     private var config: SlideshowConfig
+    private var preferences: AppPreferences
     private var loopTask: Task<Void, Never>?
     private var pending: [Command] = []
     private var slideCounter = 0
     private let tick = Duration.milliseconds(40)
 
-    init(items: [MediaItem], config: SlideshowConfig, loader: ImageLoader, startIndex: Int = 0) {
+    init(
+        items: [MediaItem],
+        config: SlideshowConfig,
+        preferences: AppPreferences,
+        loader: ImageLoader,
+        startIndex: Int = 0
+    ) {
         self.sequence = SlideshowSequence(items: items, startIndex: startIndex)
         self.config = config
+        self.preferences = preferences
         self.loader = loader
         self.currentSlideDuration = config.slideDuration
     }
@@ -221,7 +229,7 @@ final class SlideshowEngine: ObservableObject {
         }
 
         didFinish = true
-        loadFailure = "Keine der gewählten Dateien konnte gelesen werden."
+        loadFailure = "None of the chosen files could be read."
     }
 
     /// Setzt den neuen Slide und startet den Übergang.
@@ -264,7 +272,7 @@ final class SlideshowEngine: ObservableObject {
     /// Animationen dürfen auf Wunsch zu Ende laufen, damit ein Cinemagraph nicht
     /// mitten in der Bewegung abgeschnitten wird.
     private func slideDuration(for content: SlideContent) -> Double {
-        guard config.playAnimationsFully, content.animationDuration > 0 else {
+        guard preferences.playAnimationsFully, content.animationDuration > 0 else {
             return config.slideDuration
         }
         // Volle Durchläufe zählen, damit die Animation an ihrem Anfang endet.

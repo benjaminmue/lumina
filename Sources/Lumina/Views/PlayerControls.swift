@@ -68,7 +68,7 @@ struct PlayerControls: View {
                 if state.didFinish {
                     // Am Ende der Show übernimmt dieselbe Leiste - kein Dialog mitten im Bild.
                     Button(action: actions.restart) {
-                        Label("Von vorne", systemImage: "arrow.counterclockwise")
+                        Label("From the start", systemImage: "arrow.counterclockwise")
                             .labelStyle(.titleAndIcon)
                     }
                     .font(.callout)
@@ -76,18 +76,18 @@ struct PlayerControls: View {
                     Button(action: actions.previous) {
                         Image(systemName: "backward.fill")
                     }
-                    .help("Vorheriges Bild (Pfeil links)")
+                    .help("Previous image (left arrow)")
 
                     Button(action: actions.togglePause) {
                         Image(systemName: state.isPaused ? "play.fill" : "pause.fill")
                             .frame(width: 20)
                     }
-                    .help("Pause und Weiter (Leertaste)")
+                    .help("Pause and resume (space)")
 
                     Button(action: actions.next) {
                         Image(systemName: "forward.fill")
                     }
-                    .help("Nächstes Bild (Pfeil rechts)")
+                    .help("Next image (right arrow)")
 
                     Text("\(state.index + 1) / \(state.count)")
                         .font(.callout.monospacedDigit())
@@ -100,7 +100,7 @@ struct PlayerControls: View {
                 Button(action: actions.exit) {
                     Image(systemName: "xmark")
                 }
-                .help("Slideshow beenden (Esc)")
+                .help("Leave the slideshow (esc)")
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.white)

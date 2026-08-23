@@ -1,0 +1,86 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The more precise the steps, the faster this gets fixed.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what happened instead?
+      placeholder: |
+        Expected: the slideshow continues to the next image
+        Actual: it stays on the same image and the progress bar restarts
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Lumina version
+      description: Filled in automatically when you come from inside the app. Otherwise look under Settings, About.
+      placeholder: "1.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Filled in automatically when you come from inside the app.
+      placeholder: "26.5"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen
+      options:
+        - Library (choosing and arranging images)
+        - Player (the full screen slideshow)
+        - Settings
+        - Import (folders, file formats)
+        - Somewhere else or not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: file-type
+    attributes:
+      label: Which files were involved
+      multiple: true
+      options:
+        - JPEG or PNG
+        - HEIC
+        - Animated WebP
+        - Animated GIF
+        - APNG
+        - RAW
+        - Not file specific
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: |
+        Optional but very helpful. Run this while reproducing the problem:
+        `log stream --predicate 'subsystem == "ch.bebamu.lumina"'`
+      render: shell

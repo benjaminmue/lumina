@@ -2,7 +2,8 @@
 
 **Just another Mac slideshow app.**
 
-Native, for Apple Silicon. SwiftUI, no framework baggage, no network access.
+Native, for Apple Silicon. SwiftUI, no framework baggage. The only network access is
+the update check, and you can switch it off.
 
 Built for photo series and cinemagraphs: pick images or whole folders, set the timing and
 transition, hit play. Animated WebP, GIF and APNG actually animate instead of showing their

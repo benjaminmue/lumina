@@ -2,7 +2,8 @@
 
 **Just another Mac slideshow app.**
 
-Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast, kein Netzwerkzugriff.
+Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast. Der einzige
+Netzwerkzugriff ist die Update-Suche, und die lässt sich abschalten.
 
 Kurzfassung auf Deutsch. Die ausführliche Beschreibung samt Messwerten steht im
 [englischen README](README.md), damit nicht zwei Fassungen auseinanderlaufen.

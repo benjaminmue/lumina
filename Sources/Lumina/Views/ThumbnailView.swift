@@ -49,7 +49,7 @@ struct ThumbnailView: View {
             .onHover { isHovered = $0 }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(item.name)
-            .accessibilityValue(isEnabled ? "In der Slideshow" : "Nicht in der Slideshow")
+            .accessibilityValue(isEnabled ? "In the slideshow" : "Not in the slideshow")
             .contextMenu { contextMenu }
             .help(item.url.path)
             .task(id: item.url) {
@@ -141,7 +141,7 @@ struct ThumbnailView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(6)
-                .help("Slideshow hier starten")
+                .help("Start slideshow here")
             }
             .transition(.opacity)
         }
@@ -157,7 +157,7 @@ struct ThumbnailView: View {
                 .padding(.vertical, 3)
                 .background(.thinMaterial, in: Capsule())
                 .padding(6)
-                .help("Animiertes Bild mit \(frameCount) Einzelbildern")
+                .help("Animated image with \(frameCount) frames")
                 .allowsHitTesting(false)
         }
     }
@@ -178,20 +178,20 @@ struct ThumbnailView: View {
             }
             .buttonStyle(.plain)
             .padding(6)
-            .help(isEnabled ? "Aus der Slideshow entfernen" : "Wieder aufnehmen")
+            .help(isEnabled ? "Remove from slideshow" : "Add back")
             .transition(.opacity)
         }
     }
 
     @ViewBuilder
     private var contextMenu: some View {
-        Button(isEnabled ? "Entfernen" : "Wieder aufnehmen", action: onToggleInclusion)
-        Button("Slideshow hier starten", action: onPlayFromHere)
+        Button(isEnabled ? "Remove" : "Add back", action: onToggleInclusion)
+        Button("Start slideshow here", action: onPlayFromHere)
         Divider()
-        Button("Im Finder zeigen") {
+        Button("Show in Finder") {
             NSWorkspace.shared.activateFileViewerSelecting([item.url])
         }
-        Button("Pfad kopieren") {
+        Button("Copy path") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(item.url.path, forType: .string)
         }

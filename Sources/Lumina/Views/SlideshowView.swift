@@ -7,6 +7,7 @@ import SwiftUI
 struct SlideshowView: View {
     let items: [MediaItem]
     let config: SlideshowConfig
+    let preferences: AppPreferences
     let loader: ImageLoader
     let onExit: () -> Void
 
@@ -17,22 +18,27 @@ struct SlideshowView: View {
     @State private var playerWindow: NSWindow?
     /// Kleine Vorschau des ersten Bildes, damit der Start nicht schwarz ist.
     @State private var posterImage: CGImage?
+    /// Hält System und Bildschirm wach, solange die Show läuft.
+    @State private var sleepAssertion: NSObjectProtocol?
 
     init(
         items: [MediaItem],
         config: SlideshowConfig,
+        preferences: AppPreferences,
         loader: ImageLoader,
         startIndex: Int = 0,
         onExit: @escaping () -> Void
     ) {
         self.items = items
         self.config = config
+        self.preferences = preferences
         self.loader = loader
         self.onExit = onExit
         _engine = StateObject(
             wrappedValue: SlideshowEngine(
                 items: items,
                 config: config,
+                preferences: preferences,
                 loader: loader,
                 startIndex: startIndex
             )
@@ -80,6 +86,7 @@ struct SlideshowView: View {
                 engine.start()
                 installKeyMonitor()
                 NSCursor.setHiddenUntilMouseMoves(true)
+                beginPreventingSleep()
             }
             // Der Wechsel ins Vollbild passiert erst nach onAppear: ohne diese Kopplung
             // liefe die ganze Slideshow mit der Auflösung des kleinen Fensters.
@@ -92,6 +99,7 @@ struct SlideshowView: View {
                 hideControlsTask?.cancel()
                 removeKeyMonitor()
                 NSCursor.unhide()
+                endPreventingSleep()
             }
             .onChange(of: config) { _, newValue in
                 engine.update(config: newValue)
@@ -129,14 +137,14 @@ struct SlideshowView: View {
                     Text(failure)
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.7))
-                    Button("Zurück") { onExit() }
+                    Button("Back") { onExit() }
                         .buttonStyle(.borderedProminent)
                         .padding(.top, 4)
                 } else {
                     ProgressView()
                         .controlSize(.small)
                         .tint(.white.opacity(0.8))
-                    Text("Wird geladen …")
+                    Text("Loading …")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.5))
                 }
@@ -215,11 +223,27 @@ struct SlideshowView: View {
         await engine.setTargetPixelSize(Int(min(max(longestEdge, 1280), 6000)))
     }
 
+    /// Verhindert, dass Bildschirmschoner oder Ruhezustand die laufende Show ablösen.
+    private func beginPreventingSleep() {
+        guard preferences.preventSleep, sleepAssertion == nil else { return }
+        sleepAssertion = ProcessInfo.processInfo.beginActivity(
+            options: [.idleDisplaySleepDisabled, .idleSystemSleepDisabled],
+            reason: "Slideshow running"
+        )
+    }
+
+    private func endPreventingSleep() {
+        if let sleepAssertion {
+            ProcessInfo.processInfo.endActivity(sleepAssertion)
+        }
+        sleepAssertion = nil
+    }
+
     private func revealControls() {
         showControls = true
         hideControlsTask?.cancel()
         hideControlsTask = Task {
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: .seconds(preferences.cursorHideDelay))
             guard !Task.isCancelled else { return }
             showControls = false
             NSCursor.setHiddenUntilMouseMoves(true)

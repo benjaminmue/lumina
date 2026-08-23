@@ -38,6 +38,17 @@ else
     echo "Hinweis: kein AppIcon.icns - 'swift scripts/make-icon.swift' erzeugt es"
 fi
 
+# Sprachdateien ins Bundle. Sie liegen unter Contents/Resources und damit im
+# Suchpfad von Bundle.main - nur dort findet SwiftUI sie ohne Zutun.
+echo "==> Kopiere Sprachdateien"
+LANG_COUNT=0
+for lproj in "$ROOT"/Resources/*.lproj; do
+    [[ -d "$lproj" ]] || continue
+    cp -R "$lproj" "$APP/Contents/Resources/"
+    LANG_COUNT=$((LANG_COUNT + 1))
+done
+echo "    $LANG_COUNT Sprachen"
+
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 # libwebp mitliefern, damit die App unabhängig von Homebrew startet.

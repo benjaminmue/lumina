@@ -13,16 +13,21 @@ public enum TransitionStyle: String, CaseIterable, Codable, Identifiable, Sendab
 
     public var id: String { rawValue }
 
-    public var label: String {
+    /// Anzeigename.
+    ///
+    /// `LocalizedStringResource` statt `String`: der Text wird erst beim Anzeigen
+    /// aufgelöst und folgt damit einer zur Laufzeit gewählten Sprache. Der Schlüssel
+    /// ist der englische Text, damit eine fehlende Übersetzung lesbar bleibt.
+    public var label: LocalizedStringResource {
         switch self {
-        case .cut: return "Harter Schnitt"
-        case .crossfade: return "Überblenden"
-        case .slide: return "Schieben"
-        case .push: return "Verdrängen"
+        case .cut: return "Hard cut"
+        case .crossfade: return "Crossfade"
+        case .slide: return "Slide"
+        case .push: return "Push"
         case .zoomBlur: return "Zoom"
-        case .wipe: return "Wischen"
-        case .flip: return "Umschlagen"
-        case .random: return "Zufällig"
+        case .wipe: return "Wipe"
+        case .flip: return "Flip"
+        case .random: return "Random"
         }
     }
 
@@ -50,11 +55,11 @@ public enum ScaleMode: String, CaseIterable, Codable, Identifiable, Sendable {
 
     public var id: String { rawValue }
 
-    public var label: String {
+    public var label: LocalizedStringResource {
         switch self {
-        case .fit: return "Einpassen"
-        case .fill: return "Ausfüllen (Crop)"
-        case .fitBlurred: return "Einpassen mit Unschärfe-Rand"
+        case .fit: return "Fit"
+        case .fill: return "Fill (cropped)"
+        case .fitBlurred: return "Fit with blurred edges"
         }
     }
 }
@@ -68,12 +73,12 @@ public enum KenBurnsIntensity: String, CaseIterable, Codable, Identifiable, Send
 
     public var id: String { rawValue }
 
-    public var label: String {
+    public var label: LocalizedStringResource {
         switch self {
-        case .off: return "Aus"
-        case .subtle: return "Dezent"
-        case .medium: return "Mittel"
-        case .strong: return "Stark"
+        case .off: return "Off"
+        case .subtle: return "Subtle"
+        case .medium: return "Medium"
+        case .strong: return "Strong"
         }
     }
 
@@ -108,13 +113,13 @@ public enum SortOrder: String, CaseIterable, Codable, Identifiable, Sendable {
 
     public var id: String { rawValue }
 
-    public var label: String {
+    public var label: LocalizedStringResource {
         switch self {
-        case .name: return "Dateiname"
-        case .dateCreated: return "Erstelldatum"
-        case .dateModified: return "Änderungsdatum"
-        case .fileSize: return "Dateigrösse"
-        case .shuffled: return "Zufall"
+        case .name: return "File name"
+        case .dateCreated: return "Date created"
+        case .dateModified: return "Date modified"
+        case .fileSize: return "File size"
+        case .shuffled: return "Shuffled"
         }
     }
 }

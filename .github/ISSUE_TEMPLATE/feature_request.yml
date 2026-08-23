@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest something Lumina should be able to do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Lumina is deliberately small: it plays folders full screen and forgets them
+        afterwards. It is not a photo manager and does not edit images. Suggestions
+        that fit that scope have the best chance.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: Describe the situation, not the solution. What gets in your way today?
+      placeholder: |
+        I run a slideshow on a second screen during events. Every time I start it,
+        it opens on the wrong display and I have to drag the window over first.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where would this live
+      description: Which part of the app would change?
+      options:
+        - Library (choosing and arranging images)
+        - Player (the full screen slideshow)
+        - Settings
+        - Import (folders, file formats)
+        - Somewhere else or not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work
+      description: Your idea for a solution, if you have one. Skip this if you only know the problem.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do instead today
+      description: Workarounds, other apps, anything that helps judge how much this hurts.
+
+  - type: input
+    id: version
+    attributes:
+      label: Lumina version
+      description: Filled in automatically when you come from inside the app.
+      placeholder: "1.2.0"

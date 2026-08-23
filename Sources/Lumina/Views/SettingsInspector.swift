@@ -21,9 +21,6 @@ struct SettingsInspector: View {
         .animation(.snappy(duration: 0.2), value: app.config.transition == .cut)
         .onChange(of: app.config.sortOrder) { _, _ in app.resort() }
         .onChange(of: app.config.ascending) { _, _ in app.resort() }
-        .onChange(of: app.config.recursiveImport) { _, _ in
-            Task { await app.reload() }
-        }
         .onChange(of: app.config.slideDuration) { _, _ in
             // Ein Übergang, der länger dauert als die Standzeit, würde das Bild nie
             // ruhen lassen. Die Regel steht in sanitized() und wird hier nur angewandt.
@@ -53,12 +50,12 @@ struct SettingsInspector: View {
 
     @ViewBuilder
     private var playbackSection: some View {
-        Section("Wiedergabe") {
-            LabeledContent("Anzeigedauer") {
+        Section("Playback") {
+            LabeledContent("Time per image") {
                 sliderRow(value: $app.config.slideDuration, range: SlideshowConfig.durationRange, step: 0.5)
             }
 
-            Picker("Übergang", selection: $app.config.transition) {
+            Picker("Transition", selection: $app.config.transition) {
                 ForEach(TransitionStyle.allCases) { style in
                     Text(style.label).tag(style)
                 }
@@ -66,18 +63,18 @@ struct SettingsInspector: View {
 
             // Ausblenden statt ausgrauen: ein deaktivierter Regler ist nur Ballast.
             if app.config.transition != .cut {
-                LabeledContent("Übergangsdauer") {
+                LabeledContent("Transition duration") {
                     sliderRow(value: $app.config.transitionDuration, range: SlideshowConfig.transitionRange, step: 0.1)
                 }
             }
 
-            Picker("Bildanpassung", selection: $app.config.scaleMode) {
+            Picker("Scaling", selection: $app.config.scaleMode) {
                 ForEach(ScaleMode.allCases) { mode in
                     Text(mode.label).tag(mode)
                 }
             }
 
-            Picker("Zoom-Fahrt", selection: $app.config.kenBurns) {
+            Picker("Camera move", selection: $app.config.kenBurns) {
                 ForEach(KenBurnsIntensity.allCases) { level in
                     Text(level.label).tag(level)
                 }
@@ -90,18 +87,18 @@ struct SettingsInspector: View {
 
     @ViewBuilder
     private var orderSection: some View {
-        Section("Reihenfolge") {
-            Picker("Sortierung", selection: $app.config.sortOrder) {
+        Section("Order") {
+            Picker("Sort by", selection: $app.config.sortOrder) {
                 ForEach(SortOrder.allCases) { order in
                     Text(order.label).tag(order)
                 }
             }
             if app.config.sortOrder == .shuffled {
-                Button("Neu mischen") { app.reshuffle() }
+                Button("Shuffle again") { app.reshuffle() }
             } else {
-                Toggle("Aufsteigend", isOn: $app.config.ascending)
+                Toggle("Ascending", isOn: $app.config.ascending)
             }
-            Toggle("Endlos wiederholen", isOn: $app.config.loop)
+            Toggle("Repeat forever", isOn: $app.config.loop)
         }
     }
 
@@ -110,14 +107,13 @@ struct SettingsInspector: View {
     @ViewBuilder
     private var moreSection: some View {
         Section {
-            DisclosureGroup("Weitere Optionen", isExpanded: $showsMoreOptions) {
-                Toggle("Im Vollbild starten", isOn: $app.config.startFullscreen)
-                Toggle("Dateiname einblenden", isOn: $app.config.showFilename)
-                Toggle("Fortschrittsbalken", isOn: $app.config.showProgress)
-                Toggle("Animationen ganz abspielen", isOn: $app.config.playAnimationsFully)
-                    .help("Animierte WebP, GIF und APNG laufen mindestens einmal komplett durch")
+            // Nur noch, was zur einzelnen Show gehört. Vollbildstart, Import und
+            // Animationsverhalten stehen im Einstellungen-Fenster.
+            DisclosureGroup("Overlays", isExpanded: $showsMoreOptions) {
+                Toggle("Show file name", isOn: $app.config.showFilename)
+                Toggle("Progress bar", isOn: $app.config.showProgress)
 
-                LabeledContent("Hintergrund") {
+                LabeledContent("Background") {
                     HStack {
                         Slider(value: $app.config.backgroundBrightness, in: 0...1)
                         Text(brightnessLabel)
@@ -141,9 +137,9 @@ struct SettingsInspector: View {
         }
     }
 
-    private var brightnessLabel: String {
+    private var brightnessLabel: LocalizedStringResource {
         app.config.backgroundBrightness < 0.02
-            ? "Schwarz"
+            ? "Black"
             : "\(Int(app.config.backgroundBrightness * 100)) %"
     }
 
@@ -200,9 +196,11 @@ private struct PresetCard: View {
 /// Fertige Kombinationen für die häufigsten Anwendungsfälle.
 struct SlideshowPreset: Identifiable {
     let id: String
-    let name: String
+    /// `LocalizedStringResource`, nicht `String`: ein fertiger String wird von
+    /// SwiftUI nicht mehr übersetzt, die Karten blieben sonst englisch.
+    let name: LocalizedStringResource
     let symbol: String
-    let hint: String
+    let hint: LocalizedStringResource
     let apply: (SlideshowConfig) -> SlideshowConfig
 
     /// Ob die aktuellen Einstellungen dieser Vorlage entsprechen.
@@ -216,9 +214,9 @@ struct SlideshowPreset: Identifiable {
     static let all: [SlideshowPreset] = [
         SlideshowPreset(
             id: "screensaver",
-            name: "Bildschirmschoner",
+            name: "Screen saver",
             symbol: "moon.stars",
-            hint: "Langsam, weiche Überblendung, ruhige Zoom-Fahrt"
+            hint: "Slow, soft crossfade, calm camera move"
         ) { config in
             var next = config
             next.slideDuration = 8
@@ -233,9 +231,9 @@ struct SlideshowPreset: Identifiable {
         },
         SlideshowPreset(
             id: "diashow",
-            name: "Diaschau",
+            name: "Slide show",
             symbol: "sparkles.rectangle.stack",
-            hint: "Mittleres Tempo, wechselnde Effekte, ganzes Bild"
+            hint: "Medium pace, changing effects, whole image"
         ) { config in
             var next = config
             next.slideDuration = 5
@@ -249,9 +247,9 @@ struct SlideshowPreset: Identifiable {
         },
         SlideshowPreset(
             id: "presentation",
-            name: "Präsentation",
+            name: "Presentation",
             symbol: "rectangle.on.rectangle",
-            hint: "Harte Schnitte, kein Zoom, ohne Wiederholung"
+            hint: "Hard cuts, no zoom, no repeat"
         ) { config in
             var next = config
             next.slideDuration = 10

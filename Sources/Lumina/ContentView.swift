@@ -11,13 +11,29 @@ struct ContentView: View {
     @State private var didEnterFullscreen = false
     /// Merkt einen Vollbildwunsch, solange die Fensterreferenz noch fehlt.
     @State private var wantsFullscreen = false
+    @State private var showsLanguagePrompt = false
 
     var body: some View {
+        content
+            // Gewählte Sprache auf die ganze Oberfläche legen. Wirkt sofort;
+            // die Menüleiste zieht erst beim nächsten Start nach.
+            .environment(\.locale, app.preferences.effectiveLanguage().locale)
+            .sheet(isPresented: $showsLanguagePrompt) {
+                LanguagePrompt(preferences: $app.preferences)
+            }
+            .task {
+                showsLanguagePrompt = app.preferences.needsLanguagePrompt()
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         ZStack {
             if app.isPresenting {
                 SlideshowView(
                     items: app.playableItems,
                     config: app.config,
+                    preferences: app.preferences,
                     loader: app.loader,
                     startIndex: app.presentIndex,
                     onExit: app.stopPresenting
@@ -48,7 +64,7 @@ struct ContentView: View {
     }
 
     private func enterFullscreenIfWanted() {
-        guard app.config.startFullscreen else {
+        guard app.preferences.startFullscreen else {
             wantsFullscreen = false
             return
         }

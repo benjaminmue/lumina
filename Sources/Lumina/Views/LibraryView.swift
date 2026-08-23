@@ -5,6 +5,7 @@ import SwiftUI
 struct LibraryView: View {
     @EnvironmentObject private var app: AppState
     @State private var showInspector = true
+    @State private var showsClearConfirmation = false
     @FocusState private var gridHasFocus: Bool
 
     /// Kachelmass und Abstand bestimmen zusammen die Spaltenzahl, die für die
@@ -21,6 +22,16 @@ struct LibraryView: View {
                 grid
             }
         }
+        .confirmationDialog(
+            "Clear the list?",
+            isPresented: $showsClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear", role: .destructive) { app.clear() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The images stay on disk, only the selection is lost.")
+        }
         .frame(minWidth: 900, minHeight: 620)
         .toolbar { toolbarContent }
         .inspector(isPresented: $showInspector) {
@@ -32,7 +43,7 @@ struct LibraryView: View {
             return true
         }
         .alert(
-            "Hinweis",
+            "Note",
             isPresented: Binding(
                 get: { app.errorMessage != nil },
                 set: { if !$0 { app.errorMessage = nil } }
@@ -53,9 +64,9 @@ struct LibraryView: View {
                 .foregroundStyle(.tertiary)
 
             VStack(spacing: 8) {
-                Text("Keine Bilder geladen")
+                Text("No images loaded")
                     .font(.title2)
-                Text("Einzelne Bilder oder ganze Ordner wählen - oder Dateien hierher ziehen.")
+                Text("Pick individual images or whole folders, or drop files here.")
                     .foregroundStyle(.secondary)
             }
 
@@ -63,14 +74,14 @@ struct LibraryView: View {
                 Button {
                     Task { await app.addSources(FilePicker.chooseImages()) }
                 } label: {
-                    Label("Bilder wählen", systemImage: "photo")
+                    Label("Choose images", systemImage: "photo")
                 }
                 .buttonStyle(.borderedProminent)
 
                 Button {
                     Task { await app.addSources(FilePicker.chooseFolders()) }
                 } label: {
-                    Label("Ordner wählen", systemImage: "folder")
+                    Label("Choose folders", systemImage: "folder")
                 }
             }
             .controlSize(.large)
@@ -142,6 +153,15 @@ struct LibraryView: View {
         }
     }
 
+    /// Fragt nach, sofern die Einstellung das verlangt.
+    private func requestClear() {
+        if app.preferences.confirmClear {
+            showsClearConfirmation = true
+        } else {
+            app.clear()
+        }
+    }
+
     private func columnCount(for width: CGFloat) -> Int {
         let usable = width - gridPadding * 2
         return max(1, Int((usable + tileSpacing) / (tileMinimum + tileSpacing)))
@@ -151,25 +171,25 @@ struct LibraryView: View {
         HStack(spacing: 12) {
             if app.isImporting {
                 ProgressView().controlSize(.small)
-                Text("Lese Bilder …")
+                Text("Reading images …")
             } else {
-                Text("\(app.playableItems.count) Bilder in der Slideshow")
+                Text("\(app.playableItems.count) images in the slideshow")
 
                 if !app.selection.isEmpty {
                     Text("·").foregroundStyle(.tertiary)
-                    Text("\(app.selection.count) markiert").foregroundStyle(.secondary)
+                    Text("\(app.selection.count) marked").foregroundStyle(.secondary)
                 }
 
                 // Entfernte Bilder sind unsichtbar - der Rückweg muss darum sichtbar sein.
                 if app.removedCount > 0 {
                     Text("·").foregroundStyle(.tertiary)
-                    Text("\(app.removedCount) entfernt").foregroundStyle(.secondary)
-                    Button(app.showsRemoved ? "Ausblenden" : "Anzeigen") {
+                    Text("\(app.removedCount) removed").foregroundStyle(.secondary)
+                    Button(app.showsRemoved ? "Hide" : "Show") {
                         app.showsRemoved.toggle()
                     }
                     .buttonStyle(.link)
                     .font(.caption)
-                    Button("Zurückholen") { app.enableAll() }
+                    Button("Restore") { app.enableAll() }
                         .buttonStyle(.link)
                         .font(.caption)
                 }
@@ -177,7 +197,16 @@ struct LibraryView: View {
 
             Spacer()
 
-            Text(estimatedRuntime)
+            // Gefundene Aktualisierung: ein Hinweis, kein Dialog.
+            if let update = app.availableUpdate {
+                Link(destination: update.pageURL) {
+                    Label("Version \(update.version.description) available", systemImage: "arrow.down.circle")
+                }
+                .font(.caption)
+                Text("·").foregroundStyle(.tertiary)
+            }
+
+            runtimeLabel
                 .foregroundStyle(.secondary)
         }
         .font(.caption)
@@ -186,12 +215,20 @@ struct LibraryView: View {
         .background(.bar)
     }
 
-    private var estimatedRuntime: String {
+    /// Als View statt als String: ein zusammengebauter String wird nicht übersetzt.
+    @ViewBuilder
+    private var runtimeLabel: some View {
         let total = Double(app.playableItems.count) * app.config.slideDuration
-        guard total > 0 else { return "" }
         let minutes = Int(total) / 60
         let seconds = Int(total) % 60
-        return minutes > 0 ? "Laufzeit ca. \(minutes) min \(seconds) s" : "Laufzeit ca. \(seconds) s"
+
+        if total <= 0 {
+            EmptyView()
+        } else if minutes > 0 {
+            Text("Runtime about \(minutes) min \(seconds) s")
+        } else {
+            Text("Runtime about \(seconds) s")
+        }
     }
 
     // MARK: - Toolbar
@@ -200,53 +237,53 @@ struct LibraryView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             Menu {
-                Button("Bilder …") {
+                Button("Images …") {
                     Task { await app.addSources(FilePicker.chooseImages()) }
                 }
-                Button("Ordner …") {
+                Button("Folders …") {
                     Task { await app.addSources(FilePicker.chooseFolders()) }
                 }
                 Divider()
                 // Gehört zum Import und nicht zu den Wiedergabe-Einstellungen.
-                Toggle("Unterordner einbeziehen", isOn: $app.config.recursiveImport)
+                Toggle("Include subfolders", isOn: $app.preferences.recursiveImport)
                 Divider()
-                Button("Liste leeren", role: .destructive) { app.clear() }
+                Button("Clear list", role: .destructive) { requestClear() }
                     .disabled(app.items.isEmpty)
             } label: {
-                Label("Hinzufügen", systemImage: "plus")
+                Label("Add", systemImage: "plus")
             }
-            .help("Bilder oder Ordner hinzufügen")
+            .help("Add images or folders")
         }
 
         ToolbarItemGroup {
             if !app.items.isEmpty {
                 Menu {
-                    Section("Markierung") {
-                        Button("Alle markieren") { app.selectAll() }
-                        Button("Markierung aufheben") { app.clearSelection() }
+                    Section("Marked") {
+                        Button("Mark all") { app.selectAll() }
+                        Button("Clear marks") { app.clearSelection() }
                             .disabled(app.selection.isEmpty)
                     }
                     Section("Slideshow") {
-                        Button("Markierte entfernen") { app.removeSelected() }
+                        Button("Remove marked") { app.removeSelected() }
                             .disabled(app.selection.isEmpty)
-                        Button("Nur Markierte behalten") { app.keepOnlySelected() }
+                        Button("Keep only marked") { app.keepOnlySelected() }
                             .disabled(app.selection.isEmpty)
                         Divider()
-                        Button("Alle entfernen") { app.disableAll() }
-                        Button("Alle zurückholen") { app.enableAll() }
+                        Button("Remove all") { app.disableAll() }
+                        Button("Restore all") { app.enableAll() }
                             .disabled(app.removedCount == 0)
-                        Toggle("Entfernte anzeigen", isOn: $app.showsRemoved)
+                        Toggle("Show removed", isOn: $app.showsRemoved)
                             .disabled(app.removedCount == 0)
                     }
                 } label: {
-                    Label("Auswahl", systemImage: "checklist")
+                    Label("Selection", systemImage: "checklist")
                 }
             }
 
             Button {
                 showInspector.toggle()
             } label: {
-                Label("Einstellungen", systemImage: "sidebar.right")
+                Label("Settings", systemImage: "sidebar.right")
             }
         }
 
@@ -254,12 +291,12 @@ struct LibraryView: View {
             Button {
                 app.present()
             } label: {
-                Label("Abspielen", systemImage: "play.fill")
+                Label("Play", systemImage: "play.fill")
                     .labelStyle(.titleAndIcon)
             }
             .buttonStyle(.borderedProminent)
             .disabled(!app.canPresent)
-            .help("Slideshow starten (⌘R)")
+            .help("Start slideshow (⌘R)")
         }
     }
 }
