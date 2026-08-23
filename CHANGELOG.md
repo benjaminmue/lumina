@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.4.0 - 2026-08-23
+
+### Updates install themselves
+
+The update pane got a check button, and found updates install themselves. The
+usual three choices are offered: install now, install when you quit, or remind
+me later. Before this the app only opened the download page and left the
+downloading, mounting, dragging and Gatekeeper dance to you.
+
+Every update is verified against a public key built into the app, so a tampered
+download is refused. Because the app is replaced from the inside rather than
+downloaded through a browser, macOS does not ask about unverified software again
+after the first install.
+
+### Also
+
+- The disk image now has a background with an arrow, so the window explains
+  itself instead of relying on a text file
+- Installation instructions corrected: Apple removed the right-click route in
+  macOS 15, allowing the app now goes through System Settings
+
 ## 1.3.0 - 2026-08-23
 
 ### Settings window
