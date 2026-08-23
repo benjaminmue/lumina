@@ -40,6 +40,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct LuminaCommands: Commands {
     @ObservedObject var app: AppState
 
+    private func open(_ address: String) {
+        guard let url = URL(string: address) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// Öffnet das passende Formular auf GitHub, mit Version und Systemversion
+    /// vorbefüllt - dieselben Parameter wie im Über-Bereich.
+    private func openIssue(template: String) {
+        var components = URLComponents(string: "https://github.com/benjaminmue/lumina/issues/new")
+        let system = ProcessInfo.processInfo.operatingSystemVersion
+        let systemVersion = system.patchVersion > 0
+            ? "\(system.majorVersion).\(system.minorVersion).\(system.patchVersion)"
+            : "\(system.majorVersion).\(system.minorVersion)"
+
+        components?.queryItems = [
+            URLQueryItem(name: "template", value: template),
+            URLQueryItem(name: "version", value: UpdateModel.installedVersion.description),
+            URLQueryItem(name: "macos", value: systemVersion),
+        ]
+        guard let url = components?.url else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("Choose images …") {
@@ -80,6 +103,17 @@ struct LuminaCommands: Commands {
                 .disabled(app.items.isEmpty || app.isPresenting)
             Button("Restore all") { app.enableAll() }
                 .disabled(app.removedCount == 0 || app.isPresenting)
+        }
+
+        // Ohne eigenen Eintrag meldet macOS "Hilfe ist für Lumina nicht verfügbar",
+        // weil die App kein Hilfebuch mitbringt. Die Dokumentation liegt im Repo.
+        CommandGroup(replacing: .help) {
+            Button("Lumina Help") { open("https://github.com/benjaminmue/lumina#readme") }
+            Divider()
+            Button("Report a Bug") { openIssue(template: "bug_report.yml") }
+            Button("Request a Feature") { openIssue(template: "feature_request.yml") }
+            Divider()
+            Button("Release Notes") { open("https://github.com/benjaminmue/lumina/releases") }
         }
 
         CommandGroup(after: .pasteboard) {

@@ -35,6 +35,23 @@ fi
 # sign_update gibt die fertigen Attribute aus: sparkle:edSignature="..." length="..."
 [[ "$SIGNATURE_LINE" == *edSignature* ]] || { echo "Signatur fehlgeschlagen: $SIGNATURE_LINE" >&2; exit 1; }
 
+# Die Änderungen aus dem Changelog als HTML einbetten. Ein Verweis auf die
+# Release-Seite lädt sonst die ganze GitHub-Oberfläche samt Navigation in das
+# kleine Fenster des Update-Dialogs.
+NOTES_HTML="$(
+    awk -v version="## $VERSION" '
+        $0 ~ "^" version { found = 1; next }
+        found && /^## / { exit }
+        found { print }
+    ' "$ROOT/CHANGELOG.md" |
+    sed -E \
+        -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' \
+        -e 's/^### (.*)$/<h3>\1<\/h3>/' \
+        -e 's/^- (.*)$/<li>\1<\/li>/' \
+        -e 's/`([^`]*)`/<code>\1<\/code>/g' \
+        -e 's/\*\*([^*]*)\*\*/<strong>\1<\/strong>/g'
+)"
+
 FILENAME="$(basename "$DMG")"
 URL="https://github.com/benjaminmue/lumina/releases/download/v$VERSION/$FILENAME"
 PUBDATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')"
@@ -54,7 +71,12 @@ cat > "$OUT" <<XML
             <sparkle:version>$BUILD</sparkle:version>
             <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>$MINIMUM</sparkle:minimumSystemVersion>
-            <sparkle:releaseNotesLink>https://github.com/benjaminmue/lumina/releases/tag/v$VERSION</sparkle:releaseNotesLink>
+            <description><![CDATA[
+                <style>body{font:13px -apple-system,sans-serif;margin:0;padding:4px 2px;} h3{font-size:13px;margin:14px 0 4px;} li{margin:3px 0;} p{margin:6px 0;}</style>
+                <h2 style="font-size:15px;margin:0 0 8px">Lumina $VERSION</h2>
+$NOTES_HTML
+                <p style="color:#888;margin-top:14px">Full notes: https://github.com/benjaminmue/lumina/releases/tag/v$VERSION</p>
+            ]]></description>
             <enclosure url="$URL" $SIGNATURE_LINE type="application/octet-stream"/>
         </item>
     </channel>
