@@ -44,12 +44,34 @@ startet die Slideshow ab diesem Bild.
 
 ## Installieren
 
-DMG aus den [Releases](https://github.com/benjaminmue/lumina/releases) laden, Lumina in den
-Programme-Ordner ziehen.
+DMG aus den [Releases](https://github.com/benjaminmue/lumina/releases) laden, öffnen und
+Lumina in den Programme-Ordner ziehen.
 
-Die App ist ad-hoc signiert, aber **nicht notarisiert**. Beim ersten Start darum Rechtsklick
-auf die App, dann *Öffnen* wählen und bestätigen. Ein Doppelklick zeigt nur eine Warnung ohne
-Ausweg. Das ist einmalig nötig.
+### Erster Start: macOS blockiert
+
+Lumina ist ad-hoc signiert, aber **nicht notarisiert**. Gatekeeper hält sie darum mit
+*"Apple konnte nicht verifizieren, dass … keine Schadsoftware enthält"* an. Das ist
+erwartbar und ohne Apple-Entwicklerkonto nicht zu vermeiden. Freigeben dauert etwa
+zehn Sekunden:
+
+1. Lumina doppelklicken. Die Warnung erscheint. Auf **Fertig** klicken, nicht auf
+   "In den Papierkorb".
+2. **Systemeinstellungen → Datenschutz & Sicherheit** öffnen.
+3. Zum Abschnitt **Sicherheit** scrollen. Dort steht jetzt eine Zeile, dass Lumina
+   blockiert wurde. Auf **Dennoch öffnen** klicken und mit dem Passwort bestätigen.
+4. Lumina erneut doppelklicken und nochmals bestätigen. Danach startet sie normal.
+
+Der frühere Weg über Rechtsklick und "Öffnen" funktioniert nicht mehr, Apple hat ihn
+mit macOS 15 entfernt.
+
+Wer das Terminal bevorzugt, entfernt die Quarantäne-Markierung in einem Schritt:
+
+```bash
+xattr -d com.apple.quarantine /Applications/Lumina.app
+```
+
+Beide Wege bedeuten dasselbe: du bürgst für die App statt Apple. Wenn dir das nicht
+geheuer ist, bau sie selbst aus dem Quellcode, das ist ein Befehl.
 
 ## Bauen
 

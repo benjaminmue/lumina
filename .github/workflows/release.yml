@@ -38,6 +38,34 @@ jobs:
             found && /^## / { exit }
             found { print }
           ' CHANGELOG.md > release-notes.md
+
+          # Der Installationshinweis gehoert in jede Veroeffentlichung: ohne ihn
+          # landet die App bei den meisten Leuten im Papierkorb statt im Dock.
+          cat >> release-notes.md <<'NOTE'
+
+---
+
+## Installation
+
+Lumina ist signiert, aber nicht von Apple notarisiert. macOS blockiert sie darum beim
+ersten Start mit "Apple could not verify ... is free of malware".
+
+So gibst du sie frei:
+
+1. Lumina doppelklicken, in der Warnung auf **Fertig** klicken (nicht "In den Papierkorb")
+2. **Systemeinstellungen → Datenschutz & Sicherheit** öffnen
+3. Zum Abschnitt **Sicherheit** scrollen, bei Lumina auf **Dennoch öffnen** klicken und
+   mit dem Passwort bestätigen
+4. Lumina erneut doppelklicken und nochmals bestätigen
+
+Der frühere Weg über Rechtsklick und "Öffnen" wurde von Apple mit macOS 15 entfernt.
+
+Im Terminal in einem Schritt:
+
+```
+xattr -d com.apple.quarantine /Applications/Lumina.app
+```
+NOTE
           cat release-notes.md
 
       - name: Publish

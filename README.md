@@ -81,12 +81,31 @@ is the only network access and it can be turned off.
 
 ## Install
 
-Download the DMG from [Releases](https://github.com/benjaminmue/lumina/releases), drag Lumina to
-Applications.
+Download the DMG from [Releases](https://github.com/benjaminmue/lumina/releases), open it and
+drag Lumina to Applications.
 
-The app is ad-hoc signed but **not notarized**. On first launch, right click the app and choose
-*Open*, then confirm. A plain double click only shows a warning with no way forward. This is a
-one-time step.
+### First launch: macOS will block it
+
+Lumina is ad-hoc signed but **not notarized**, so Gatekeeper stops it with
+*"Apple could not verify … is free of malware"*. That is expected, and there is no way
+around it short of an Apple Developer account. Allowing it takes about ten seconds:
+
+1. Double-click Lumina. The warning appears. Click **Done** (not "Move to Trash").
+2. Open **System Settings → Privacy & Security**.
+3. Scroll to the **Security** section. There is now a line about Lumina being blocked.
+   Click **Open Anyway** and confirm with your password.
+4. Double-click Lumina again and confirm once more. From now on it opens normally.
+
+The Control-click trick that used to work no longer does: Apple removed it in macOS 15.
+
+If you prefer the terminal, this removes the quarantine flag in one step:
+
+```bash
+xattr -d com.apple.quarantine /Applications/Lumina.app
+```
+
+Both routes do the same thing: you vouch for the app instead of Apple. If that is not
+acceptable to you, build it yourself from source, that takes one command.
 
 ## Controls
 

@@ -2,129 +2,125 @@
 
 ## 1.3.0 - 2026-08-23
 
-### Einstellungen-Fenster
+### Settings window
 
-Neues Fenster unter ⌘-Komma mit vier Bereichen: Allgemein, Wiedergabe,
-Aktualisierung, Über. Die Trennung zur Sidebar im Hauptfenster: was eine Vorlage
-überschreibt, bleibt dort, sonst würde ein Klick auf "Bildschirmschoner"
-stillschweigend globale Einstellungen mitverändern.
+A window of its own under Cmd-comma, with four panes: General, Playback, Updates,
+About. The dividing line to the inspector in the main window: anything a preset
+overwrites stays there. Otherwise clicking "Screen saver" would silently change
+global settings too.
 
-- Neu: Ruhezustand während der Wiedergabe verhindern. Eine Slideshow, die nach
-  zehn Minuten vom Bildschirmschoner abgelöst wird, verfehlt ihren Zweck
-- Neu: Verzögerung, nach der der Mauszeiger verschwindet
-- Neu: Rückfrage vor dem Leeren der Liste
-- Neu: Letzte Quellen beim Start laden, abschaltbar
+- New: keep the Mac awake while playing. A slideshow replaced by the screen saver
+  after ten minutes misses its point
+- New: how long until the pointer disappears
+- New: ask before clearing the list
+- New: reload the last sources at launch, can be turned off
 
-### Aktualisierung
+### Updates
 
-Sucht auf Wunsch beim Start nach einer neueren Version, höchstens einmal pro
-Woche, und meldet sie als Hinweis in der Statuszeile statt als Dialog. Einzelne
-Versionen lassen sich überspringen. Das ist der einzige Netzwerkzugriff der App
-und lässt sich abschalten.
+Optionally looks for a newer version at launch, at most once a week, and reports it
+as a hint in the status bar rather than a dialog. Individual versions can be
+skipped. This is the only network access the app makes and it can be switched off.
 
-### Sprachen
+### Languages
 
-Englisch, Deutsch, Französisch, Italienisch, Spanisch und Japanisch. Die App
-folgt der Systemsprache; nur wenn das System eine Sprache verlangt, die es hier
-nicht gibt, fragt sie einmalig nach. Umstellbar in den Einstellungen, wobei die
-Menüleiste erst beim nächsten Start nachzieht.
+English, German, French, Italian, Spanish and Japanese. The app follows the system
+language; it only asks, once, if the system wants a language it does not have. The
+menu bar switches after the next restart.
 
-### Ausserdem
+### Also
 
-- Neues App-Icon
-- Formulare für Fehlermeldungen und Funktionswünsche auf GitHub. Version und
-  macOS-Version füllt die App selbst aus, wenn man sie von dort aus öffnet
+- New app icon
+- Issue forms for bugs and feature requests. Version and macOS version are filled
+  in by the app itself when you open them from inside it
 
 ## 1.2.0 - 2026-08-16
 
-Überarbeitete Oberfläche, aus zwei Reviews entstanden: einem gestalterischen
-(Leitidee Leuchtkasten - die Oberfläche tritt zurück, die Bilder tragen) und
-einem zur macOS-Idiomatik.
+Reworked interface, out of two reviews: one on visual design (the idea being a
+lightbox, where the interface recedes and the images carry the screen) and one on
+macOS conventions.
 
-### Bibliothek
+### Library
 
-- Markieren und Zusammenstellen sind getrennt: Klick markiert, Cmd und Umschalt
-  erweitern, Pfeiltasten bewegen die Markierung, ⌘A markiert alles
-- Entfernte Bilder verschwinden aus dem Raster, statt grau liegen zu bleiben.
-  Löschtaste entfernt die Markierung, die Statuszeile führt zurück
-- Dateinamen sind aus dem Raster verschwunden und erscheinen beim Überfahren
-  zusammen mit einem Play-Knopf
-- Ein Import-Menü statt zweier fast gleicher Knöpfe, ein prominenter
-  Abspielen-Knopf, "Unterordner einbeziehen" beim Import statt in den
-  Wiedergabe-Einstellungen
+- Selecting and including are now separate: a click selects, Cmd and Shift extend,
+  arrow keys move the selection, Cmd-A selects all
+- Removed images disappear from the grid instead of sitting there greyed out. The
+  delete key removes the selection, the status bar leads back
+- File names left the grid and appear on hover together with a play button
+- One import menu instead of two near-identical buttons, one prominent play
+  button, "include subfolders" moved to the import menu where it belongs
 
-### Einstellungen
+### Settings
 
-- Vorlagen als Karten mit aktivem Zustand, darunter die vier häufig genutzten
-  Regler, alles Übrige eingeklappt: sichtbar 9 statt 17 Bedienelemente
-- Die Übergangsdauer wird ausgeblendet statt ausgegraut, wenn es keinen Übergang gibt
+- Presets as cards with an active state, the four settings people actually touch
+  below, everything else folded away: nine visible controls instead of seventeen
+- Transition duration hides rather than greying out when there is no transition
 
 ### Player
 
-- Ladezustand zeigt das Bild unscharf vorab statt eines Spinners auf Schwarz
-- Steuerleiste entschlackt, mit Verlauf über die volle Breite; das Ende der Show
-  ist ein Zustand dieser Leiste statt eines Dialogs mitten im Bild
-- Fortschrittsbalken ist im Ruhezustand ein Haarstrich
+- Loading shows a blurred preview instead of a spinner on black
+- Controls slimmed down, with a gradient behind them across the full width; the
+  end of the show is a state of that bar, not a dialog in the middle of the image
+- The progress bar is a hairline at rest
 
-### Behoben
+### Fixed
 
-- Klicks auf die Kachel-Knöpfe wurden von der Auswahl-Geste geschluckt
-- Verlauf und Schatten der Steuerleiste waren auf Kapselbreite abgeschnitten
+- Clicks on the tile buttons were swallowed by the selection gesture
+- Gradient and shadow of the control bar were clipped to the width of the capsule
 
-### Aus dem Code-Review
+### From the code review
 
-- Animierte WebP wurden immer in voller Auflösung dekodiert und der Puffer nur nach
-  Frame-Anzahl begrenzt: eine 4000x4000-Animation hätte 1.5 GB belegt. Frames werden
-  jetzt auf Anzeigegrösse verkleinert, der Puffer ist auf 64 MB begrenzt
-- Der WebP-Decoder reichte einen Zeiger aus `Data.withUnsafeBytes` an libwebp weiter,
-  das ihn behält und später daraus liest. Er besitzt seinen Puffer jetzt selbst;
-  geprüft mit 3000 dekodierten Frames unter dem Address Sanitizer
-- Konnte keine Datei gelesen werden, rief sich der Bildwechsel unbegrenzt selbst auf.
-  Jetzt eine Schleife mit Rundendeckel und sichtbarer Fehlermeldung
-- Ken-Burns konnte bei Skalierung 1.0 einen leeren Rand zeigen und hielt bei ganz
-  abgespielten Animationen zu früh an
-- Vorauslade-Aufgaben wurden nie abgebrochen und füllten den geleerten Cache neu
-- Der Frame-Producer lief bei unlesbaren Dateien mit 100 Hz leer
-- Zwei unzutreffende `@unchecked Sendable`-Zusagen entfernt
-- Meldungen gehen an `os.Logger` statt still verloren
+- Animated WebP was always decoded at full resolution and the buffer was capped by
+  frame count: a 4000x4000 animation would have used 1.5 GB. Frames are now scaled
+  to display size and the buffer is bounded to 64 MB
+- The WebP decoder passed a pointer from `Data.withUnsafeBytes` to libwebp, which
+  keeps it and reads from it later. It now owns its buffer; verified with 3000
+  decoded frames under the address sanitizer
+- When no file could be read, the image change called itself without bound. It is
+  a loop with a one-round cap now, and it surfaces an error
+- Ken Burns could expose an empty edge at scale 1.0 and stopped early when
+  animations play in full
+- Prefetch tasks were never cancelled and refilled a just-cleared cache
+- The frame producer could spin at 100 Hz on unreadable files
+- Two incorrect `@unchecked Sendable` claims removed
+- Messages go to `os.Logger` instead of being lost silently
 
-### Aus dem zweiten Review-Durchgang
+### From the second review pass
 
-- Eine laufende Dekodierung wurde unabhängig von der angeforderten Zielgrösse geteilt und
-  ihr Ergebnis unter der grösseren Anfrage gespeichert. Danach galt ein zu klein dekodiertes
-  Bild dauerhaft als gross genug
-- Das Überspringen unlesbarer Dateien sprang immer an den Listenanfang, auch ohne
-  eingeschaltete Wiederholung: eine Show mit einer defekten Datei am Ende endete nie
-- Mehrere schnelle Tastendrücke innerhalb eines Ticks überschrieben einander, weil nur ein
-  Kommando zwischengespeichert wurde
+- An in-flight decode was shared regardless of the size it was started for, and
+  its result cached under the larger request. A too-small image then counted as
+  large enough for everyone after it
+- Skipping unreadable files always wrapped to the start, even with repeat off: a
+  show with one broken file at the end never finished
+- Several fast key presses within one tick overwrote each other
 
 ## 1.1.0 - 2026-08-16
 
-- Animierte WebP, GIF und APNG werden abgespielt statt als Standbild gezeigt
-- Neue Einstellung "Animationen ganz abspielen": ein Cinemagraph wird nicht mitten in der Bewegung abgeschnitten
-- Badge mit Frame-Anzahl auf animierten Kacheln
-- Speicherbudget für Animationen mit adaptivem Downsampling
-- Gespeicherte Einstellungen überstehen neue Felder, statt auf Standardwerte zurückzufallen
+- Animated WebP, GIF and APNG are played instead of shown as a still frame
+- New setting "play animations in full": a cinemagraph is not cut off mid-motion
+- Badge with the frame count on animated tiles
+- Memory budget for animations with adaptive downsampling
+- Stored settings survive new fields instead of falling back to defaults
 
-### Behoben
+### Fixed
 
-- Hochformat-Bilder sprengten die Raster-Kachel und überlappten Nachbarn
-- Vollbild-Slideshow lief mit der Dekodier-Auflösung des kleinen Fensters, Bilder waren unscharf
-- Tastatur-Monitor verschluckte Tasten in anderen Fenstern der App
-- Vollbildstart schlug fehl, wenn direkt nach dem Programmstart gestartet wurde
-- Statuszeile verdeckte die unterste Kachelreihe
-- Kacheln waren nur mit der Maus bedienbar
+- Portrait images blew up their grid cell and overlapped their neighbours
+- The fullscreen slideshow ran at the decode resolution of the small window, so
+  images were blurry
+- The keyboard monitor swallowed keys in other windows of the app
+- Starting fullscreen failed when started right after launch
+- The status bar covered the bottom row of tiles
+- Tiles could only be operated with the mouse
 
 ## 1.0.0 - 2026-08-16
 
-Erste Version.
+First version.
 
-- Import einzelner Bilder, ganzer Ordner (optional rekursiv) und per Drag and Drop
-- Abwählen einzelner Bilder aus der importierten Liste
-- Sieben Übergänge plus Zufallsmodus, Dauer einstellbar
-- Skalierung: Einpassen, Ausfüllen, Einpassen mit unscharfem Rand
-- Ken-Burns-Fahrt in vier Stufen, reproduzierbar pro Bild
-- Anzeigedauer 1 bis 60 s, Sortierung nach Name, Datum, Grösse oder Zufall
-- Vollbild-Player mit Tastatursteuerung und einblendbarer Steuerleiste
-- Drei Vorlagen: Bildschirmschoner, Diaschau, Präsentation
-- 27 Unit-Tests für die Kernlogik
+- Import of individual images, whole folders (optionally recursive) and by drag and drop
+- Removing individual images from the imported list
+- Seven transitions plus a random mode, duration adjustable
+- Scaling: fit, fill, fit with blurred edges
+- Ken Burns move in four strengths, reproducible per image
+- Time per image 1 to 60 s, sorting by name, date, size or shuffled
+- Fullscreen player with keyboard control and controls that fade in
+- Three presets: screen saver, slide show, presentation
+- 27 unit tests for the core logic
