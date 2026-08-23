@@ -215,7 +215,7 @@ private struct AboutPane: View {
             Divider().padding(.vertical, 6)
 
             HStack(spacing: 18) {
-                Link("Benjamin Mueller", destination: profileURL)
+                Link("Benjamin Müller", destination: profileURL)
                 Link("Source code", destination: repoURL)
             }
             .font(.callout)
