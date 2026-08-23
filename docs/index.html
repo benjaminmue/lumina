@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumina - Just another Mac slideshow app</title>
+<meta name="description" content="Lumina is a free, open-source slideshow app for macOS. Animated WebP, GIF and APNG that actually play, eight transitions, blurred-edge scaling, six languages, no telemetry.">
+<meta property="og:title" content="Lumina">
+<meta property="og:description" content="Just another Mac slideshow app. Free, open source, no telemetry.">
+<meta property="og:image" content="https://lumina.bebamu.ch/assets/player-earth.jpg">
+<meta property="og:url" content="https://lumina.bebamu.ch">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<style>
+  :root {
+    --bg: #0F1626;
+    --bg-raise: #151F35;
+    --bg-card: #1B2841;
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #D7E1F2;
+    --muted: #93A5C4;
+    --accent: #7DB7FF;
+    --accent-soft: #A9D0FF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  img { max-width: 100%; height: auto; display: block; }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    text-align: center;
+    padding: clamp(64px, 10vh, 120px) 24px clamp(40px, 6vh, 64px);
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 55% at 50% -10%, rgba(125, 183, 255, 0.10), transparent 70%);
+    pointer-events: none;
+  }
+  .hero > * { position: relative; }
+
+  .app-icon {
+    width: 116px;
+    height: 116px;
+    margin: 0 auto 24px;
+    filter: drop-shadow(0 12px 40px rgba(125, 183, 255, 0.25));
+  }
+
+  .hero h1 {
+    font-size: clamp(2.2rem, 5vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #FFFFFF;
+  }
+
+  .tagline {
+    margin-top: 8px;
+    font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .cta {
+    margin-top: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-block;
+    background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+    color: #0B1220;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 13px 28px;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(125, 183, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 32px rgba(125, 183, 255, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .ghost-link { font-size: 0.95rem; color: var(--muted); }
+  .ghost-link:hover { color: var(--accent-soft); }
+
+  .fineprint {
+    margin-top: 18px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    letter-spacing: 0.01em;
+  }
+
+  .gatekeeper {
+    max-width: 560px;
+    margin: 28px auto 0;
+    padding: 14px 18px;
+    background: rgba(21, 31, 53, 0.7);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--muted);
+    text-align: left;
+  }
+  .gatekeeper strong { color: var(--text); font-weight: 600; }
+
+  /* ---------- Three-dot divider ---------- */
+  .dots {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    padding: clamp(40px, 7vh, 72px) 0;
+  }
+  .dots i {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(196, 218, 246, 0.28);
+  }
+  .dots i:nth-child(2) {
+    width: 9px; height: 9px;
+    background: var(--accent);
+    box-shadow: 0 0 12px rgba(125, 183, 255, 0.55);
+  }
+
+  /* ---------- Screenshots ---------- */
+  .shot {
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 80px rgba(125, 183, 255, 0.05);
+    overflow: hidden;
+    background: var(--bg-raise);
+  }
+
+  .caption {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 16px;
+  }
+
+  /* ---------- Sections ---------- */
+  section { padding: 0 0 clamp(24px, 4vh, 40px); }
+
+  .overline {
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    text-align: center;
+    font-size: clamp(1.4rem, 3vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: #FFFFFF;
+    margin-bottom: clamp(32px, 5vh, 48px);
+  }
+
+  /* ---------- Features ---------- */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .feature {
+    background: var(--bg-raise);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .feature h3 {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: #FFFFFF;
+    margin-bottom: 6px;
+  }
+  .feature p {
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  /* ---------- Playback two-up ---------- */
+  .two-up {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 720px) {
+    .two-up { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Closing CTA ---------- */
+  .closing {
+    text-align: center;
+    padding: clamp(24px, 5vh, 48px) 24px clamp(56px, 8vh, 88px);
+  }
+  .closing p {
+    color: var(--muted);
+    margin-bottom: 24px;
+    font-size: 1rem;
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 32px 24px 44px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  footer p + p { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <img class="app-icon" src="assets/icon.svg" width="116" height="116"
+       alt="Lumina app icon: a bright glowing dot flanked by two dimmer dots on deep navy">
+  <h1>Lumina</h1>
+  <p class="tagline">Just another Mac slideshow app</p>
+
+  <nav class="cta" aria-label="Download">
+    <a class="btn" href="https://github.com/benjaminmue/lumina/releases/latest/download/Lumina.dmg">Download for macOS</a>
+    <a class="ghost-link" href="https://github.com/benjaminmue/lumina">View on GitHub</a>
+    <a class="ghost-link" href="https://github.com/benjaminmue/lumina/releases">Release notes</a>
+  </nav>
+
+  <p class="fineprint">Version 1.5.0 &middot; macOS 14 or later &middot; Apple Silicon &middot; Free and open source</p>
+
+  <p class="gatekeeper">
+    <strong>First launch:</strong> Lumina is signed but not notarized, so macOS blocks it once.
+    Open System&nbsp;Settings &rarr; Privacy&nbsp;&amp;&nbsp;Security, scroll to Security, and click
+    <strong>Open&nbsp;Anyway</strong>. You only need this once. Later updates install themselves.
+  </p>
+</header>
+
+<main>
+  <section class="wrap" aria-label="Library screenshot">
+    <img class="shot" src="assets/library.jpg" width="1440" height="900"
+         alt="Lumina library window: a grid of space photographs next to a sidebar with playback settings for transitions, timing, scaling and camera move">
+  </section>
+
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <section class="wrap" aria-labelledby="features-title">
+    <p class="overline">Features</p>
+    <h2 class="section-title" id="features-title">Small app, sharp edges</h2>
+    <div class="features">
+      <div class="feature">
+        <h3>Animations that actually play</h3>
+        <p>Animated WebP, GIF and APNG play frame for frame, decoded through libwebp: around 186&times; faster than the system decoder on long animations.</p>
+      </div>
+      <div class="feature">
+        <h3>No library, no import</h3>
+        <p>Point it at folders or pick single images. Lumina reads them and forgets them again. No database.</p>
+      </div>
+      <div class="feature">
+        <h3>Eight transitions</h3>
+        <p>With adjustable display time and transition duration.</p>
+      </div>
+      <div class="feature">
+        <h3>Slow camera move</h3>
+        <p>An optional drift over each image, in three strengths.</p>
+      </div>
+      <div class="feature">
+        <h3>Three scaling modes</h3>
+        <p>Including fit with softly blurred edges, so nothing is cropped away.</p>
+      </div>
+      <div class="feature">
+        <h3>Six languages</h3>
+        <p>English, German, French, Italian, Spanish and Japanese. Lumina follows the system language.</p>
+      </div>
+      <div class="feature">
+        <h3>Updates itself</h3>
+        <p>New versions install themselves, verified against a built-in public key.</p>
+      </div>
+      <div class="feature">
+        <h3>Private by default</h3>
+        <p>No telemetry, no accounts, no network access beyond the update check, and that can be turned off.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <section class="wrap" aria-labelledby="playback-title">
+    <p class="overline">Playback</p>
+    <h2 class="section-title" id="playback-title">Nothing cropped away</h2>
+    <div class="two-up">
+      <img class="shot" src="assets/player-earth.jpg" width="2048" height="1330"
+           alt="Fullscreen playback of NASA's Blue Marble photograph of Earth, fitted with softly blurred bars on either side">
+      <img class="shot" src="assets/player-pillars.jpg" width="2048" height="1330"
+           alt="Fullscreen playback of the Pillars of Creation nebula, fitted with softly blurred bars on either side">
+    </div>
+    <p class="caption">Fit with softly blurred edges: the whole image, edge to edge, on any screen.</p>
+  </section>
+
+  <section class="closing">
+    <p>Free, open source, and about as complicated as a slideshow app should be.</p>
+    <a class="btn" href="https://github.com/benjaminmue/lumina/releases/latest/download/Lumina.dmg">Download for macOS</a>
+  </section>
+</main>
+
+<footer>
+  <p>MIT licensed &middot; built by Benjamin Mueller &middot; <a href="https://github.com/benjaminmue/lumina">github.com/benjaminmue/lumina</a></p>
+  <p>Screenshots show public domain imagery courtesy of NASA.</p>
+</footer>
+
+</body>
+</html>
