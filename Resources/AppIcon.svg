@@ -1,105 +1,45 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bgGradient" x1="160" y1="112" x2="864" y2="912" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.98"/>
-      <stop offset="0.52" stop-color="#F3F7FD" stop-opacity="0.95"/>
-      <stop offset="1" stop-color="#E8EEF8" stop-opacity="0.92"/>
+    <linearGradient id="bg" x1="180" y1="140" x2="860" y2="920" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1B2841"/>
+      <stop offset="0.55" stop-color="#151F35"/>
+      <stop offset="1" stop-color="#0F1626"/>
     </linearGradient>
-    <linearGradient id="circleGradient" x1="286" y1="224" x2="734" y2="804" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#65748A" stop-opacity="0.92"/>
-      <stop offset="1" stop-color="#384457" stop-opacity="0.96"/>
+    <radialGradient id="dotGlow" cx="512" cy="500" r="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A9D0FF" stop-opacity="0.5"/>
+      <stop offset="0.6" stop-color="#7DB7FF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#7DB7FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="dotCore" cx="466" cy="450" r="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.5" stop-color="#E2F0FF"/>
+      <stop offset="1" stop-color="#8BB9F2"/>
+    </radialGradient>
+    <linearGradient id="sideDot" x1="0" y1="440" x2="0" y2="584" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C4DAF6" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#8FB0DC" stop-opacity="0.2"/>
     </linearGradient>
-    <linearGradient id="cardGradient" x1="334" y1="392" x2="670" y2="662" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
-      <stop offset="1" stop-color="#F5F9FF" stop-opacity="0.9"/>
+    <linearGradient id="topGlass" x1="512" y1="0" x2="512" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="backCardGradient" x1="545" y1="372" x2="743" y2="676" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#DDE7F8" stop-opacity="0.42"/>
-      <stop offset="1" stop-color="#A9B9D4" stop-opacity="0.18"/>
-    </linearGradient>
-    <linearGradient id="imageSky" x1="394" y1="433" x2="394" y2="593" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#CFE5FF"/>
-      <stop offset="1" stop-color="#E8F3FF"/>
-    </linearGradient>
-    <linearGradient id="mountainFront" x1="408" y1="500" x2="574" y2="610" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#77B0FF"/>
-      <stop offset="1" stop-color="#3F84F3"/>
-    </linearGradient>
-    <linearGradient id="mountainBack" x1="436" y1="520" x2="528" y2="610" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#B7D7FF"/>
-      <stop offset="1" stop-color="#7BAEFA"/>
-    </linearGradient>
-    <linearGradient id="haloGradient" x1="286" y1="707" x2="738" y2="707" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#B4D7FF" stop-opacity="0"/>
-      <stop offset="0.16" stop-color="#A8D0FF" stop-opacity="0.62"/>
-      <stop offset="0.5" stop-color="#7DB7FF" stop-opacity="0.92"/>
-      <stop offset="0.84" stop-color="#A8D0FF" stop-opacity="0.62"/>
-      <stop offset="1" stop-color="#B4D7FF" stop-opacity="0"/>
-    </linearGradient>
-    <filter id="outerGlow" x="84" y="84" width="856" height="856" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="30" result="blur"/>
-      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.76 0 0 0 0 0.84 0 0 0 0 0.96 0 0 0 0.32 0"/>
-    </filter>
-    <filter id="glassBlur" x="104" y="104" width="816" height="816" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="24"/>
-    </filter>
-    <filter id="circleSoft" x="182" y="170" width="660" height="660" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="8"/>
-    </filter>
-    <filter id="cardShadow" x="278" y="335" width="506" height="422" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#1B2433" flood-opacity="0.18"/>
-    </filter>
-    <filter id="haloBlur" x="242" y="662" width="540" height="90" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="10"/>
-    </filter>
-    <clipPath id="cardClip">
-      <rect x="334" y="392" width="336" height="270" rx="34"/>
+    <clipPath id="squircle">
+      <rect width="1024" height="1024" rx="224"/>
     </clipPath>
   </defs>
 
-  <rect width="1024" height="1024" rx="224" fill="#0F1117"/>
-  <g filter="url(#outerGlow)">
-    <rect x="150" y="150" width="724" height="724" rx="178" fill="#DDE8F8"/>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <g clip-path="url(#squircle)">
+    <rect width="1024" height="400" fill="url(#topGlass)"/>
+
+    <circle cx="512" cy="500" r="280" fill="url(#dotGlow)"/>
+    <circle cx="512" cy="500" r="156" fill="url(#dotCore)"/>
+    <circle cx="512" cy="500" r="156" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="2"/>
+
+    <circle cx="236" cy="512" r="60" fill="url(#sideDot)"/>
+    <circle cx="236" cy="512" r="60" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="2"/>
+    <circle cx="788" cy="512" r="60" fill="url(#sideDot)"/>
+    <circle cx="788" cy="512" r="60" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="2"/>
   </g>
-
-  <g filter="url(#glassBlur)">
-    <circle cx="512" cy="512" r="280" fill="#EAF1FB" fill-opacity="0.46"/>
-  </g>
-
-  <rect x="150" y="150" width="724" height="724" rx="178" fill="url(#bgGradient)"/>
-  <rect x="150" y="150" width="724" height="724" rx="178" fill="#FFFFFF" fill-opacity="0.18"/>
-  <rect x="150.5" y="150.5" width="723" height="723" rx="177.5" stroke="#FFFFFF" stroke-opacity="0.48"/>
-
-  <g filter="url(#circleSoft)">
-    <circle cx="512" cy="512" r="268" fill="url(#circleGradient)"/>
-  </g>
-  <circle cx="512" cy="512" r="268" fill="url(#circleGradient)"/>
-  <circle cx="512" cy="512" r="268" fill="#FFFFFF" fill-opacity="0.04"/>
-  <circle cx="512" cy="512" r="267" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="2"/>
-
-  <g filter="url(#haloBlur)">
-    <ellipse cx="512" cy="707" rx="208" ry="24" fill="url(#haloGradient)"/>
-  </g>
-  <ellipse cx="512" cy="707" rx="172" ry="15" fill="#D4E9FF" fill-opacity="0.18"/>
-
-  <g opacity="0.78">
-    <rect x="532" y="366" width="176" height="262" rx="36" transform="rotate(7 532 366)" fill="url(#backCardGradient)"/>
-    <rect x="532.75" y="366.75" width="174.5" height="260.5" rx="35.25" transform="rotate(7 532.75 366.75)" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1.5"/>
-  </g>
-
-  <g filter="url(#cardShadow)">
-    <rect x="334" y="392" width="336" height="270" rx="34" fill="url(#cardGradient)"/>
-    <rect x="334.75" y="392.75" width="334.5" height="268.5" rx="33.25" stroke="#FFFFFF" stroke-opacity="0.62" stroke-width="1.5"/>
-  </g>
-
-  <g clip-path="url(#cardClip)">
-    <rect x="388" y="444" width="126" height="154" rx="24" fill="url(#imageSky)"/>
-    <circle cx="456" cy="471" r="18" fill="#A9D0FF"/>
-    <path d="M401 592L464 518L531 592H401Z" fill="url(#mountainBack)"/>
-    <path d="M387 598L491 471L596 598H387Z" fill="url(#mountainFront)"/>
-  </g>
-
-  <rect x="548" y="472" width="112" height="18" rx="9" fill="#78A8EE"/>
-  <rect x="548" y="523" width="92" height="14" rx="7" fill="#B8C8DD"/>
-  <rect x="548" y="565" width="110" height="14" rx="7" fill="#B8C8DD"/>
+  <rect x="1" y="1" width="1022" height="1022" rx="223" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
 </svg>
