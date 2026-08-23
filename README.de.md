@@ -1,5 +1,7 @@
 # Lumina
 
+**Just another Mac slideshow app.**
+
 Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast, kein Netzwerkzugriff.
 
 Kurzfassung auf Deutsch. Die ausführliche Beschreibung samt Messwerten steht im
