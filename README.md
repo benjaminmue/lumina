@@ -9,8 +9,11 @@ Built for photo series and cinemagraphs: pick images or whole folders, set the t
 transition, hit play. Animated WebP, GIF and APNG actually animate instead of showing their
 first frame.
 
-> The user interface is in German. Code, commits and this document are in English.
-> [Deutsche Fassung dieser Datei](README.de.md).
+**[lumina.bebamu.ch](https://lumina.bebamu.ch)** is the shortest way to see what it does: the
+page runs Lumina's own transitions under your scroll wheel, on the same maths the app uses.
+
+> The interface follows your system language and ships in six of them. Code, commits and this
+> document are in English. [Deutsche Fassung dieser Datei](README.de.md).
 
 ## Why it exists
 
@@ -34,13 +37,16 @@ Double click starts the slideshow at that image.
 
 **Transitions**
 
-Cut, crossfade, slide, push, zoom, wipe, 3D flip, or a different one per image. Duration is
-adjustable from 0 to 3 seconds.
+Cut, crossfade, slide, push, zoom, wipe, 3D flip, or a different one per image. The transition
+runs from 0 to 5 seconds and is capped at 80 percent of the time an image is shown, so a long
+transition cannot swallow a short slide.
 
 **Image handling**
 
 Fit, fill (cropped), or fit with a blurred backdrop filling the letterbox. A Ken Burns pan and
-zoom in four strengths, reproducible per image. Adjustable background brightness.
+zoom, off or in three strengths: zoom to 1.06, 1.14 or 1.28 over the hold, with a pan of 2, 5 or
+10 percent of the edge. The move is seeded from the file, so the same image drifts the same way
+every time. Adjustable background brightness.
 
 **Animated images**
 
@@ -59,6 +65,14 @@ APNG stay on ImageIO, where the frame counts are small enough for it to keep up.
 
 Frames are streamed through a bounded buffer, so a 400 frame file starts as fast as a JPEG and
 memory stays constant regardless of length.
+
+**Presets**
+
+Three starting points, one click each. *Screen saver*: 8 seconds per image, a two second
+crossfade, fill, medium camera move, loops, no progress bar. *Slide show*: 5 seconds, a
+different transition per image, fit with blurred edges, subtle move. *Presentation*: 10 seconds,
+hard cuts, fit, no camera move, stops at the end. A preset writes the slideshow parameters only
+and never touches the global settings.
 
 **Settings**
 
@@ -86,8 +100,9 @@ The update check is the only network access and it can be turned off.
 
 ## Install
 
-Download the DMG from [Releases](https://github.com/benjaminmue/lumina/releases), open it and
-drag Lumina to Applications.
+Download the DMG from [Releases](https://github.com/benjaminmue/lumina/releases), or use the
+[stable link](https://github.com/benjaminmue/lumina/releases/latest/download/Lumina.dmg), which
+always points at the newest build. Open it and drag Lumina to Applications.
 
 ### First launch: macOS will block it
 

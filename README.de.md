@@ -5,6 +5,9 @@
 Native macOS-Slideshow-App für Apple Silicon. SwiftUI, kein Framework-Ballast. Der einzige
 Netzwerkzugriff ist die Update-Suche, und die lässt sich abschalten.
 
+**[lumina.bebamu.ch](https://lumina.bebamu.ch)** zeigt am schnellsten, worum es geht: die Seite
+führt Luminas eigene Übergänge unter dem Scrollrad vor, mit derselben Rechnung wie die App.
+
 Kurzfassung auf Deutsch. Die ausführliche Beschreibung samt Messwerten steht im
 [englischen README](README.md), damit nicht zwei Fassungen auseinanderlaufen.
 
@@ -17,11 +20,13 @@ festen Ordnern. Lumina liest jeden Ordner, spielt ihn im Vollbild ab und vergiss
 ## Was sie kann
 
 - Einzelne Bilder, ganze Ordner (wahlweise mit Unterordnern) oder Dateien per Drag and Drop
-- Acht Übergänge, Anzeige- und Übergangsdauer einstellbar
+- Acht Einträge im Übergangsmenü, Standzeit und Übergangsdauer einstellbar; der Übergang läuft
+  von 0 bis 5 Sekunden und wird auf 80 Prozent der Standzeit gedeckelt
 - Einpassen, Ausfüllen oder Einpassen mit unscharfem Rand
-- Ken-Burns-Fahrt in vier Stufen, pro Bild reproduzierbar
+- Ken-Burns-Fahrt, aus oder in drei Stufen, pro Bild reproduzierbar
 - Animierte WebP, GIF und APNG werden abgespielt statt als Standbild gezeigt
 - Drei Vorlagen: Bildschirmschoner, Diaschau, Präsentation
+- Sechs Sprachen, die App folgt der Systemsprache
 - Updates installieren sich selbst: jetzt, beim Beenden oder später
 
 ## Zusammenstellen
@@ -64,8 +69,9 @@ die Statuszeile bietet den Rückweg an.
 
 ## Installieren
 
-DMG aus den [Releases](https://github.com/benjaminmue/lumina/releases) laden, öffnen und
-Lumina in den Programme-Ordner ziehen.
+DMG aus den [Releases](https://github.com/benjaminmue/lumina/releases) laden, oder über den
+[festen Link](https://github.com/benjaminmue/lumina/releases/latest/download/Lumina.dmg), der
+immer auf den neusten Build zeigt. Öffnen und Lumina in den Programme-Ordner ziehen.
 
 ### Erster Start: macOS blockiert
 
