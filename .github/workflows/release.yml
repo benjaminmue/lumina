@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libwebp
         run: brew install webp
@@ -76,7 +76,7 @@ jobs:
         run: cp dist/Lumina-*.dmg dist/Lumina.dmg
 
       - name: Publish
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # Der Feed muss mit ins Release: die App fragt ihn unter
           # releases/latest/download/appcast.xml ab.
